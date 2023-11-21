@@ -1,5 +1,6 @@
 [package]
 name = "nohuman"
+description = "Remove human reads from a sequencing run"
 version = "0.1.0"
 edition = "2021"
 
@@ -9,4 +10,5 @@ edition = "2021"
 clap = { version = "4.4.7", features = ["derive"] }
 log = "0.4.20"
 env_logger = "0.10.0"
+anyhow = "1.0.75"
 

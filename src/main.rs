@@ -1,7 +1,8 @@
-use clap::{Parser};
-use log::{info, warn, LevelFilter, error, debug};
-use nohuman::CommandRunner;
+use anyhow::{anyhow, bail, Context, Result};
+use clap::Parser;
 use env_logger::Builder;
+use log::{debug, error, info, warn, LevelFilter};
+use nohuman::CommandRunner;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -15,7 +16,7 @@ struct Args {
     verbose: bool,
 }
 
-fn main() {
+fn main() -> Result<()> {
     let args = Args::parse();
 
     // Initialize logger
@@ -46,15 +47,18 @@ fn main() {
         }
     }
 
-    if args.check {
-        if !missing_commands.is_empty() {
-            error!("The following dependencies are missing:");
-            for cmd in missing_commands {
-                error!("{}", cmd);
-            }
-            std::process::exit(1);
+    if !missing_commands.is_empty() {
+        error!("The following dependencies are missing:");
+        for cmd in missing_commands {
+            error!("{}", cmd);
         }
-        info!("Dependencies are available");
-        std::process::exit(0);
+        bail!("Missing dependencies");
     }
+
+    if args.check {
+        info!("All dependencies are available");
+        return Ok(());
+    }
+
+    Ok(())
 }

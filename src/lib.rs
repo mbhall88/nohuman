@@ -1,5 +1,5 @@
-use std::process::Command;
 use std::io::{self, Write};
+use std::process::Command;
 
 pub struct CommandRunner {
     pub command: String,
@@ -13,9 +13,7 @@ impl CommandRunner {
     }
 
     pub fn run(&self, args: &[&str]) -> io::Result<()> {
-        let output = Command::new(&self.command)
-            .args(args)
-            .output()?;
+        let output = Command::new(&self.command).args(args).output()?;
 
         if !output.status.success() {
             let error_message = String::from_utf8_lossy(&output.stderr);
@@ -33,7 +31,6 @@ impl CommandRunner {
             .unwrap_or(false)
     }
 }
-
 
 // add tests for each of the CommandRunner methods
 #[cfg(test)]
