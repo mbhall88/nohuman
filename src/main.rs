@@ -1,15 +1,29 @@
+use std::path::{Path, PathBuf};
+
 use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
 use env_logger::Builder;
 use log::{debug, error, info, warn, LevelFilter};
-use nohuman::CommandRunner;
+use nohuman::{download::download_database, CommandRunner};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
+    /// Input file(s) to remove human reads from
+    #[arg(name = "INPUT", required_unless_present_any = &["check", "download"])]
+    input: Option<Vec<PathBuf>>,
+
     /// Check that all required dependencies are available
     #[arg(short, long)]
     check: bool,
+
+    /// Download the database
+    #[arg(short, long)]
+    download: bool,
+
+    /// Path to the database
+    #[arg(short = 'D', long = "db", value_name = "PATH")]
+    database: Option<PathBuf>,
 
     /// Set the logging level to verbose
     #[arg(short, long)]
@@ -32,6 +46,26 @@ fn main() -> Result<()> {
         .format_module_path(false)
         .format_target(false)
         .init();
+
+    // Check if the database exists
+    if let Some(database_path) = &args.database {
+        if !Path::new(database_path).exists() && !args.download {
+            bail!("Database does not exist at the provided path");
+        }
+    } else {
+        // Check if the default location exists
+        todo!("make this a global option");
+        let default_database_path = Path::new("default_database.db");
+        if !default_database_path.exists() && !args.download {
+            bail!("Default database does not exist");
+        }
+    }
+
+    if args.download {
+        info!("Downloading database...");
+        download_database(args.database.as_deref())?;
+        info!("Database downloaded");
+    }
 
     let conda = CommandRunner::new("conda");
 

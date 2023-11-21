@@ -11,4 +11,8 @@ clap = { version = "4.4.7", features = ["derive"] }
 log = "0.4.20"
 env_logger = "0.10.0"
 anyhow = "1.0.75"
-
+flate2 = "1.0.28"
+reqwest = { version = "0.11.22", features = ["blocking"] }
+tar = "0.4.40"
+thiserror = "1.0.50"
+tempfile = "3.8.1"

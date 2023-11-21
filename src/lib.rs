@@ -1,3 +1,5 @@
+pub mod download;
+
 use std::io::{self, Write};
 use std::process::Command;
 
