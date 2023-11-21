@@ -1,0 +1,72 @@
+name: Rust
+
+on: [ push, pull_request ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  cog_check_job:
+    runs-on: ubuntu-latest
+    name: check conventional commit compliance
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # pick the pr HEAD instead of the merge commit only if it's a PR, otherwise use the default
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Conventional commit check
+        uses: cocogitto/cocogitto-action@v3
+        with:
+          check-latest-tag-only: true
+  test:
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, macos-latest ]
+        rust:
+          - stable
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: taiki-e/install-action@just
+
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Format
+        run: cargo fmt -- --check
+
+      - name: Lint
+        run: just lint
+
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build
+        run: cargo build --verbose
+
+      - name: Run tests
+        run: just test
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-tarpaulin@0.23.1
+
+      - name: Run cargo-tarpaulin
+        run: just coverage
+
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+          verbose: true
