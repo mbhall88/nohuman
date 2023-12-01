@@ -70,9 +70,9 @@ fn main() -> Result<()> {
         info!("Database downloaded");
     }
 
-    let conda = CommandRunner::new("conda");
+    let kraken = CommandRunner::new("kraken2");
 
-    let external_commands = vec![conda];
+    let external_commands = vec![kraken];
 
     let mut missing_commands = Vec::new();
     for cmd in external_commands {
