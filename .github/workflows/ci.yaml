@@ -61,7 +61,7 @@ jobs:
 
       - uses: taiki-e/install-action@v2
         with:
-          tool: cargo-tarpaulin@0.23.1
+          tool: cargo-tarpaulin
 
       - name: Run cargo-tarpaulin
         run: just coverage
