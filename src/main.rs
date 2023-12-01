@@ -1,10 +1,22 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{bail, Context, Result};
 use clap::Parser;
 use env_logger::Builder;
-use log::{debug, error, info, warn, LevelFilter};
+use lazy_static::lazy_static;
+use log::{debug, error, info, LevelFilter};
 use nohuman::{download::download_database, CommandRunner};
+
+lazy_static! {
+    static ref DEFAULT_DB_LOCATION: String = {
+        let home = dirs::home_dir().expect("Could not find home directory");
+        home.join(".nohuman")
+            .join("db")
+            .to_str()
+            .unwrap()
+            .to_string()
+    };
+}
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -22,8 +34,8 @@ struct Args {
     download: bool,
 
     /// Path to the database
-    #[arg(short = 'D', long = "db", value_name = "PATH")]
-    database: Option<PathBuf>,
+    #[arg(short = 'D', long = "db", value_name = "PATH", default_value = &**DEFAULT_DB_LOCATION)]
+    database: PathBuf,
 
     /// Set the logging level to verbose
     #[arg(short, long)]
@@ -48,22 +60,13 @@ fn main() -> Result<()> {
         .init();
 
     // Check if the database exists
-    if let Some(database_path) = &args.database {
-        if !Path::new(database_path).exists() && !args.download {
-            bail!("Database does not exist at the provided path");
-        }
-    } else {
-        // Check if the default location exists
-        todo!("make this a global option");
-        let default_database_path = Path::new("default_database.db");
-        if !default_database_path.exists() && !args.download {
-            bail!("Default database does not exist");
-        }
+    if !args.database.exists() {
+        bail!("Database does not exist. Use --download to download the database");
     }
 
     if args.download {
         info!("Downloading database...");
-        download_database(args.database.as_deref())?;
+        download_database(&args.database).context("Failed to download database")?;
         info!("Database downloaded");
     }
 
