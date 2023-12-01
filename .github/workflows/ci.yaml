@@ -56,7 +56,7 @@ jobs:
 
       - name: Run tests
         env:
-          RUST_BACKTRACE: "1"
+          RUST_BACKTRACE: "full"
         run: just test
 
       - uses: taiki-e/install-action@v2

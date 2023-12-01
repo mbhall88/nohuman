@@ -42,11 +42,12 @@ impl CommandRunner {
     }
 
     pub fn is_executable(&self) -> bool {
-        Command::new("command")
-            .args(["-v", &self.command])
-            .output()
-            .map(|output| output.status.success())
-            .unwrap_or(false)
+        let cmd = format!("command -v {}", &self.command);
+        let result = Command::new("sh").args(["-c", &cmd]).output();
+        match result {
+            Ok(output) => output.status.success(),
+            Err(_) => false,
+        }
     }
 }
 
