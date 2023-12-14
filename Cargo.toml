@@ -3,8 +3,18 @@ name = "nohuman"
 description = "Remove human reads from a sequencing run"
 version = "0.1.0"
 edition = "2021"
+authors = ["Michael Hall <michael@mbh.sh>"]
+repository = "https://github.com/mbhall88/nohuman"
+homepage = "https://github.com/mbhall88/nohuman"
+readme = "README.md"
+license-file = "LICENSE"
+rust-version = "1.70.0"
+keywords = ["bioinformatics", "contamination", "metagenomics"]
+categories = ["science", "command-line-utilities"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[badges]
+maintenance = { status = "actively-developed" }
 
 [dependencies]
 clap = { version = "4.4.7", features = ["derive"] }
@@ -23,3 +33,4 @@ lazy_static = "1.4.0"
 dirs = "5.0.1"
 futures-util = "0.3.29"
 async-std = { version = "1.12.0", features = ["attributes", "tokio1"] }
+indicatif = "0.17.7"

@@ -2,6 +2,7 @@ use crate::Config;
 use async_std::task;
 use flate2::read::GzDecoder;
 use futures_util::StreamExt;
+use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::blocking::get;
 use std::fs;
 use std::fs::File;
@@ -66,14 +67,25 @@ async fn download_from_url(url: &str, dest: &Path) -> Result<(), DownloadError> 
         return Err(DownloadError::DownloadFailed);
     }
 
+    let content_length = response.content_length().unwrap_or(0);
+    let progress_bar = ProgressBar::new(content_length);
+    progress_bar.set_style(
+        ProgressStyle::default_bar()
+            .template("[{elapsed_precise}] [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({eta})")
+            .unwrap()
+            .progress_chars("#>-"),
+    );
+
     let mut file = File::create(dest).map_err(DownloadError::IoError)?;
 
     let mut stream = response.bytes_stream();
     while let Some(item) = stream.next().await {
         let chunk = item?;
         file.write_all(&chunk).map_err(DownloadError::IoError)?;
+        progress_bar.inc(chunk.len() as u64);
     }
 
+    progress_bar.finish();
     Ok(())
 }
 
