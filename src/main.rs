@@ -85,6 +85,10 @@ fn main() -> Result<()> {
         info!("Downloading database...");
         download_database(&args.database).context("Failed to download database")?;
         info!("Database downloaded");
+        if args.input.is_none() {
+            info!("No input files provided. Exiting.");
+            return Ok(());
+        }
     }
 
     let kraken = CommandRunner::new("kraken2");
