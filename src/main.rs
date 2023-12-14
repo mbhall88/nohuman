@@ -77,7 +77,7 @@ fn main() -> Result<()> {
         .init();
 
     // Check if the database exists
-    if !args.database.exists() {
+    if !args.database.exists() && !args.download && !args.check {
         bail!("Database does not exist. Use --download to download the database");
     }
 
