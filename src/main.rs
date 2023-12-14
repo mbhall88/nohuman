@@ -124,7 +124,7 @@ fn main() -> Result<()> {
     let temp_kraken_output =
         tempfile::NamedTempFile::new().context("Failed to create temporary kraken output file")?;
     let threads = args.threads.to_string();
-    let db = args.database.to_string_lossy().to_string();
+    let db = args.database.join("db").to_string_lossy().to_string();
     let mut kraken_cmd = vec![
         "--threads",
         &threads,
