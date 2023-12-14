@@ -139,8 +139,11 @@ fn main() -> Result<()> {
         _ => {}
     }
 
-    // create a temporary output directory
-    let tmpdir = tempfile::tempdir().context("Failed to create temporary output directory")?;
+    // create a temporary output directory in the current directory and don't delete it
+    let tmpdir = tempfile::Builder::new()
+        .prefix("nohuman")
+        .tempdir_in(std::env::current_dir().unwrap())
+        .context("Failed to create temporary directory")?;
     let outfile = if input.len() == 2 {
         tmpdir.path().join("kraken_out#.fq")
     } else {
@@ -158,15 +161,27 @@ fn main() -> Result<()> {
     if input.len() == 2 {
         let out1 = args.out1.unwrap_or_else(|| {
             let parent = input[0].parent().unwrap();
-            // get the part of the file name before the extension
-            let fname = input[0].file_stem().unwrap();
+            // get the part of the file name before the extension.
+            // if the file is compressed, the extension will be .gz, we want to remove this first before getting the file stem
+            let fname = if input[0].extension().unwrap_or_default() == "gz" {
+                let no_ext = input[0].with_extension("");
+                no_ext.file_stem().unwrap().to_owned()
+            } else {
+                input[0].file_stem().unwrap().to_owned()
+            };
             let fname = format!("{}.nohuman.fq", fname.to_string_lossy());
             parent.join(fname)
         });
         let out2 = args.out2.unwrap_or_else(|| {
             let parent = input[1].parent().unwrap();
-            // get the part of the file name before the extension
-            let fname = input[1].file_stem().unwrap();
+            // get the part of the file name before the extension.
+            // if the file is compressed, the extension will be .gz, we want to remove this first before getting the file stem
+            let fname = if input[1].extension().unwrap_or_default() == "gz" {
+                let no_ext = input[1].with_extension("");
+                no_ext.file_stem().unwrap().to_owned()
+            } else {
+                input[1].file_stem().unwrap().to_owned()
+            };
             let fname = format!("{}.nohuman.fq", fname.to_string_lossy());
             parent.join(fname)
         });
@@ -179,8 +194,14 @@ fn main() -> Result<()> {
     } else {
         let out1 = args.out1.unwrap_or_else(|| {
             let parent = input[0].parent().unwrap();
-            // get the part of the file name before the extension
-            let fname = input[0].file_stem().unwrap();
+            // get the part of the file name before the extension.
+            // if the file is compressed, the extension will be .gz, we want to remove this first before getting the file stem
+            let fname = if input[0].extension().unwrap_or_default() == "gz" {
+                let no_ext = input[0].with_extension("");
+                no_ext.file_stem().unwrap().to_owned()
+            } else {
+                input[0].file_stem().unwrap().to_owned()
+            };
             let fname = format!("{}.nohuman.fq", fname.to_string_lossy());
             parent.join(fname)
         });
