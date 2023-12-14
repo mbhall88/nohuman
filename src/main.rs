@@ -150,7 +150,8 @@ fn main() -> Result<()> {
     kraken_cmd.extend(&["--classified-out", &outfile]);
 
     kraken_cmd.extend(input.iter().map(|p| p.to_str().unwrap()));
-    info!("Running kraken2 with arguments: {:?}", &kraken_cmd);
+    info!("Running kraken2...");
+    debug!("With arguments: {:?}", &kraken_cmd);
     kraken.run(&kraken_cmd).context("Failed to run kraken2")?;
     info!("Kraken2 finished. Organising output...");
 
