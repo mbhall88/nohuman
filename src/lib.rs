@@ -1,7 +1,9 @@
 pub mod download;
 
 use serde::Deserialize;
+use std::ffi::OsStr;
 use std::io::{self, Write};
+use std::path::PathBuf;
 use std::process::Command;
 
 #[derive(Deserialize)]
@@ -51,7 +53,16 @@ impl CommandRunner {
     }
 }
 
-// add tests for each of the CommandRunner methods
+/// A utility function that allows the CLI to error if a path doesn't exist
+pub fn check_path_exists<S: AsRef<OsStr> + ?Sized>(s: &S) -> Result<PathBuf, String> {
+    let path = PathBuf::from(s);
+    if path.exists() {
+        Ok(path)
+    } else {
+        Err(format!("{:?} does not exist", path))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -86,5 +97,18 @@ mod tests {
     fn test_is_not_executable() {
         let command = CommandRunner::new("not-a-real-command");
         assert!(!command.is_executable());
+    }
+
+    #[test]
+    fn check_path_exists_it_doesnt() {
+        let result = check_path_exists(OsStr::new("fake.path"));
+        assert!(result.is_err())
+    }
+
+    #[test]
+    fn check_path_it_does() {
+        let actual = check_path_exists(OsStr::new("Cargo.toml")).unwrap();
+        let expected = PathBuf::from("Cargo.toml");
+        assert_eq!(actual, expected)
     }
 }

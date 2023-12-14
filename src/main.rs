@@ -5,7 +5,7 @@ use clap::Parser;
 use env_logger::Builder;
 use lazy_static::lazy_static;
 use log::{debug, error, info, LevelFilter};
-use nohuman::{download::download_database, CommandRunner};
+use nohuman::{check_path_exists, download::download_database, CommandRunner};
 
 lazy_static! {
     static ref DEFAULT_DB_LOCATION: String = {
@@ -22,7 +22,7 @@ lazy_static! {
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// Input file(s) to remove human reads from
-    #[arg(name = "INPUT", required_unless_present_any = &["check", "download"])]
+    #[arg(name = "INPUT", required_unless_present_any = &["check", "download"], value_parser = check_path_exists)]
     input: Option<Vec<PathBuf>>,
 
     /// Check that all required dependencies are available
