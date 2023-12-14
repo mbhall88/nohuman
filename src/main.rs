@@ -4,7 +4,7 @@ use anyhow::{bail, Context, Result};
 use clap::Parser;
 use env_logger::Builder;
 use lazy_static::lazy_static;
-use log::{debug, error, info, LevelFilter};
+use log::{debug, error, info, warn, LevelFilter};
 use nohuman::{check_path_exists, download::download_database, CommandRunner};
 
 lazy_static! {
@@ -25,6 +25,19 @@ struct Args {
     #[arg(name = "INPUT", required_unless_present_any = &["check", "download"], value_parser = check_path_exists)]
     input: Option<Vec<PathBuf>>,
 
+    /// First output file.
+    ///
+    /// Defaults to the name of the first input file with the suffix "nohuman" appended. e.g. "input_1.fastq.gz" -> "input_1.nohuman.fq".
+    /// NOTE: kraken2 output cannot be compressed, so the output will always be uncompressed.
+    #[arg(short, long, name = "OUTPUT_1")]
+    pub out1: Option<PathBuf>,
+    /// Second output file - if two input files given.
+    ///
+    /// Defaults to the name of the first input file with the suffix "nohuman" appended. e.g. "input_2.fastq.gz" -> "input_2.nohuman.fq".
+    /// NOTE: kraken2 output cannot be compressed, so the output will always be uncompressed.
+    #[arg(short = 'O', long, name = "OUTPUT_2")]
+    pub out2: Option<PathBuf>,
+
     /// Check that all required dependencies are available
     #[arg(short, long)]
     check: bool,
@@ -36,6 +49,10 @@ struct Args {
     /// Path to the database
     #[arg(short = 'D', long = "db", value_name = "PATH", default_value = &**DEFAULT_DB_LOCATION)]
     database: PathBuf,
+
+    /// Number of threads to use in kraken2
+    #[arg(short, long, value_name = "INT", default_value = "1")]
+    threads: usize,
 
     /// Set the logging level to verbose
     #[arg(short, long)]
@@ -72,13 +89,13 @@ fn main() -> Result<()> {
 
     let kraken = CommandRunner::new("kraken2");
 
-    let external_commands = vec![kraken];
+    let external_commands = vec![&kraken];
 
     let mut missing_commands = Vec::new();
     for cmd in external_commands {
         if !cmd.is_executable() {
             debug!("{} is not executable", cmd.command);
-            missing_commands.push(cmd.command);
+            missing_commands.push(cmd.command.to_owned());
         } else {
             debug!("{} is executable", cmd.command);
         }
@@ -96,6 +113,84 @@ fn main() -> Result<()> {
         info!("All dependencies are available");
         return Ok(());
     }
+
+    // error out if input files are not provided, otherwise unwrap to a variable
+    let input = args.input.context("No input files provided")?;
+
+    let temp_kraken_output =
+        tempfile::NamedTempFile::new().context("Failed to create temporary kraken output file")?;
+    let threads = args.threads.to_string();
+    let db = args.database.to_string_lossy().to_string();
+    let mut kraken_cmd = vec![
+        "--threads",
+        &threads,
+        "--db",
+        &db,
+        "--output",
+        temp_kraken_output.path().to_str().unwrap(),
+    ];
+    match input.len() {
+        2 => kraken_cmd.push("--paired"),
+        i if i > 2 => bail!("Only one or two input files are allowed"),
+        _ => {}
+    }
+
+    // create a temporary output directory
+    let tmpdir = tempfile::tempdir().context("Failed to create temporary output directory")?;
+    let outfile = if input.len() == 2 {
+        tmpdir.path().join("kraken_out#.fq")
+    } else {
+        tmpdir.path().join("kraken_out.fq")
+    };
+    let outfile = outfile.to_string_lossy().to_string();
+    kraken_cmd.extend(&["--classified-out", &outfile]);
+
+    kraken_cmd.extend(input.iter().map(|p| p.to_str().unwrap()));
+    info!("Running kraken2 with arguments: {:?}", &kraken_cmd);
+    kraken.run(&kraken_cmd).context("Failed to run kraken2")?;
+    info!("Kraken2 finished. Organising output...");
+
+    if input.len() == 2 {
+        let out1 = args.out1.unwrap_or_else(|| {
+            let parent = input[0].parent().unwrap();
+            // get the part of the file name before the extension
+            let fname = input[0].file_stem().unwrap();
+            let fname = format!("{}.nohuman.fq", fname.to_string_lossy());
+            parent.join(fname)
+        });
+        let out2 = args.out2.unwrap_or_else(|| {
+            let parent = input[1].parent().unwrap();
+            // get the part of the file name before the extension
+            let fname = input[1].file_stem().unwrap();
+            let fname = format!("{}.nohuman.fq", fname.to_string_lossy());
+            parent.join(fname)
+        });
+        let tmpout1 = tmpdir.path().join("kraken_out_1.fq");
+        let tmpout2 = tmpdir.path().join("kraken_out_2.fq");
+        // move the output files to the correct location
+        std::fs::rename(tmpout1, &out1).unwrap();
+        std::fs::rename(tmpout2, &out2).unwrap();
+        info!("Output files written to: {:?} and {:?}", &out1, &out2);
+    } else {
+        let out1 = args.out1.unwrap_or_else(|| {
+            let parent = input[0].parent().unwrap();
+            // get the part of the file name before the extension
+            let fname = input[0].file_stem().unwrap();
+            let fname = format!("{}.nohuman.fq", fname.to_string_lossy());
+            parent.join(fname)
+        });
+        let tmpout1 = tmpdir.path().join("kraken_out.fq");
+        // move the output files to the correct location
+        std::fs::rename(tmpout1, &out1).unwrap();
+        info!("Output file written to: {:?}", &out1);
+    }
+
+    // cleanup the temporary directory, but only issue a warning if it fails
+    if let Err(e) = tmpdir.close() {
+        warn!("Failed to remove temporary output directory: {}", e);
+    }
+
+    info!("Done.");
 
     Ok(())
 }
