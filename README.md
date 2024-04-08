@@ -4,7 +4,7 @@
 [![Crates.io](https://img.shields.io/crates/v/nohuman.svg)](https://crates.io/crates/nohuman)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![github release version](https://img.shields.io/github/v/release/mbhall88/nohuman)](https://github.com/mbhall88/nohuman/releases)
-[![DOI:10.1093/gigascience/giae010](https://img.shields.io/badge/citation-10.1101/2023.09.18.558339-blue)][paper]
+[![DOI:10.1093/gigascience/giae010](https://img.shields.io/badge/citation-10.1093/gigascience/giae010-blue)][paper]
 
 
 👤➡️🚫 **Remove human reads from a sequencing run** 👤➡️🚫
@@ -262,7 +262,7 @@ Options:
 
 ## Cite
 
-[![DOI:10.1093/gigascience/giae010](https://img.shields.io/badge/citation-10.1101/2023.09.18.558339-blue)][paper]
+[![DOI:10.1093/gigascience/giae010](https://img.shields.io/badge/citation-10.1093/gigascience/giae010-blue)][paper]
 
 > Hall, Michael B., and Lachlan J. M. Coin. “Pangenome databases improve host removal and mycobacteria classification from clinical metagenomic data” GigaScience, April 4, 2024. <https://doi.org/10.1093/gigascience/giae010>
 
