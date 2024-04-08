@@ -4,7 +4,7 @@
 [![Crates.io](https://img.shields.io/crates/v/nohuman.svg)](https://crates.io/crates/nohuman)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![github release version](https://img.shields.io/github/v/release/mbhall88/nohuman)](https://github.com/mbhall88/nohuman/releases)
-[![DOI:10.1101/2023.09.18.558339 ](https://img.shields.io/badge/citation-10.1101/2023.09.18.558339-blue)](https://doi.org/10.1101/2023.09.18.558339)
+[![DOI:10.1093/gigascience/giae010](https://img.shields.io/badge/citation-10.1101/2023.09.18.558339-blue)][paper]
 
 
 👤➡️🚫 **Remove human reads from a sequencing run** 👤➡️🚫
@@ -262,22 +262,25 @@ Options:
 
 ## Cite
 
-[![DOI:10.1101/2023.09.18.558339 ](https://img.shields.io/badge/citation-10.1101/2023.09.18.558339-blue)](https://doi.org/10.1101/2023.09.18.558339)
+[![DOI:10.1093/gigascience/giae010](https://img.shields.io/badge/citation-10.1101/2023.09.18.558339-blue)][paper]
 
-> Hall, Michael B., and Lachlan J. M. Coin. “Pangenome Databases Provide Superior Host Removal and Mycobacteria Classification from Clinical Metagenomic Data.” bioRxiv, September 19, 2023. https://doi.org/10.1101/2023.09.18.558339.
+> Hall, Michael B., and Lachlan J. M. Coin. “Pangenome databases improve host removal and mycobacteria classification from clinical metagenomic data” GigaScience, April 4, 2024. <https://doi.org/10.1093/gigascience/giae010>
 
 ```bibtex
-@misc{hall_pangenome_2023,
-	title = {Pangenome databases provide superior host removal and mycobacteria classification from clinical metagenomic data},
-	url = {https://www.biorxiv.org/content/10.1101/2023.09.18.558339v3},
-	doi = {10.1101/2023.09.18.558339},
-	language = {en},
-	urldate = {2023-09-20},
-	publisher = {bioRxiv},
-	author = {Hall, Michael B. and Coin, Lachlan J. M.},
-	month = sep,
-	year = {2023},
+@article{hall_pangenome_2024,
+	title = {Pangenome databases improve host removal and mycobacteria classification from clinical metagenomic data},
+	volume = {13},
+	issn = {2047-217X},
+	url = {https://doi.org/10.1093/gigascience/giae010},
+	doi = {10.1093/gigascience/giae010},
+	urldate = {2024-04-07},
+	journal = {GigaScience},
+	author = {Hall, Michael B and Coin, Lachlan J M},
+	month = jan,
+	year = {2024},
+	pages = {giae010},
 }
+
 ```
 
 [quay.io]: https://quay.io/repository/mbhall88/nohuman
@@ -288,4 +291,4 @@ Options:
 
 [kraken]: https://github.com/DerrickWood/kraken2
 
-[paper]: https://doi.org/10.1101/2023.09.18.558339
+[paper]: https://doi.org/10.1093/gigascience/giae010
