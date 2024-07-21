@@ -150,7 +150,7 @@ fn main() -> Result<()> {
         tmpdir.path().join("kraken_out.fq")
     };
     let outfile = outfile.to_string_lossy().to_string();
-    kraken_cmd.extend(&["--classified-out", &outfile]);
+    kraken_cmd.extend(&["--unclassified-out", &outfile]);
 
     kraken_cmd.extend(input.iter().map(|p| p.to_str().unwrap()));
     info!("Running kraken2...");
