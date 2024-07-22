@@ -146,7 +146,7 @@ mod tests {
     use tempfile::TempDir;
 
     pub fn check_internet_connection(timeout: std::time::Duration) -> bool {
-        use std::net::{TcpStream, SocketAddr};
+        use std::net::{SocketAddr, TcpStream};
 
         let addr = "8.8.8.8:53".parse::<SocketAddr>().unwrap();
         TcpStream::connect_timeout(&addr, timeout).is_ok()

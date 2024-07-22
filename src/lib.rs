@@ -98,7 +98,6 @@ pub fn validate_db_directory(path: &Path) -> Result<PathBuf, String> {
     ))
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
