@@ -5,7 +5,9 @@ use clap::Parser;
 use env_logger::Builder;
 use lazy_static::lazy_static;
 use log::{debug, error, info, warn, LevelFilter};
-use nohuman::{check_path_exists, download::download_database, CommandRunner};
+use nohuman::{
+    check_path_exists, download::download_database, validate_db_directory, CommandRunner,
+};
 
 lazy_static! {
     static ref DEFAULT_DB_LOCATION: String = {
@@ -124,7 +126,10 @@ fn main() -> Result<()> {
     let temp_kraken_output =
         tempfile::NamedTempFile::new().context("Failed to create temporary kraken output file")?;
     let threads = args.threads.to_string();
-    let db = args.database.join("db").to_string_lossy().to_string();
+    let db = validate_db_directory(&args.database)
+        .map_err(|e| anyhow::anyhow!(e))?
+        .to_string_lossy()
+        .to_string();
     let mut kraken_cmd = vec![
         "--threads",
         &threads,

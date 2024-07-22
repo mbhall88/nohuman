@@ -3,7 +3,7 @@ pub mod download;
 use serde::Deserialize;
 use std::ffi::OsStr;
 use std::io::{self, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 #[derive(Deserialize)]
@@ -62,6 +62,42 @@ pub fn check_path_exists<S: AsRef<OsStr> + ?Sized>(s: &S) -> Result<PathBuf, Str
         Err(format!("{:?} does not exist", path))
     }
 }
+
+/// Checks if the specified path is a directory and contains the required kraken2 db files.
+/// If not found, checks inside a 'db' subdirectory.
+///
+/// # Arguments
+///
+/// * `path` - A path to check for the required kraken2 db files.
+///
+/// # Returns
+///
+/// * `Result<PathBuf, String>` - Ok with the valid path if the files are found, Err otherwise.
+pub fn validate_db_directory(path: &Path) -> Result<PathBuf, String> {
+    let required_files = ["hash.k2d", "opts.k2d", "taxo.k2d"];
+    let files_str = required_files.join(", ");
+
+    // Check if the path is a directory and contains the required files
+    if path.is_dir() && required_files.iter().all(|file| path.join(file).exists()) {
+        return Ok(path.to_path_buf());
+    }
+
+    // Check inside a 'db' subdirectory
+    let db_path = path.join("db");
+    if db_path.is_dir()
+        && required_files
+            .iter()
+            .all(|file| db_path.join(file).exists())
+    {
+        return Ok(db_path);
+    }
+
+    Err(format!(
+        "Required files ({}) not found in {:?} or its 'db' subdirectory",
+        files_str, path
+    ))
+}
+
 
 #[cfg(test)]
 mod tests {

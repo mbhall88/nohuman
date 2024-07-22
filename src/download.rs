@@ -145,8 +145,19 @@ mod tests {
     use std::path::PathBuf;
     use tempfile::TempDir;
 
+    pub fn check_internet_connection(timeout: std::time::Duration) -> bool {
+        use std::net::{TcpStream, SocketAddr};
+
+        let addr = "8.8.8.8:53".parse::<SocketAddr>().unwrap();
+        TcpStream::connect_timeout(&addr, timeout).is_ok()
+    }
+
     #[test]
     fn test_download_and_extract_tarball() {
+        // Skip the test if there is no internet connection
+        if !check_internet_connection(std::time::Duration::from_secs(2)) {
+            return;
+        }
         // Create a temporary directory to store the extracted files
         let temp_dir = TempDir::new().unwrap();
         let output_path = temp_dir.path().join("output");
@@ -173,6 +184,10 @@ mod tests {
 
     #[test]
     fn test_download_and_extract_tarball_md5_mismatch() {
+        // Skip the test if there is no internet connection
+        if !check_internet_connection(std::time::Duration::from_secs(2)) {
+            return;
+        }
         // Create a temporary directory to store the extracted files
         let temp_dir = TempDir::new().unwrap();
         let output_path = temp_dir.path().join("output");
@@ -195,6 +210,10 @@ mod tests {
 
     #[test]
     fn test_download_failure() {
+        // Skip the test if there is no internet connection
+        if !check_internet_connection(std::time::Duration::from_secs(2)) {
+            return;
+        }
         // Create a temporary directory to store the downloaded files
         let temp_dir = TempDir::new().unwrap();
         let output_path = temp_dir.path().join("output");
@@ -217,13 +236,17 @@ mod tests {
 
     #[test]
     fn test_extraction_failure() {
+        // Skip the test if there is no internet connection
+        if !check_internet_connection(std::time::Duration::from_secs(2)) {
+            return;
+        }
         // Create a temporary directory to store the downloaded files
         let temp_dir = TempDir::new().unwrap();
         let output_path = temp_dir.path().join("output");
 
         // Download and extract a tarball with invalid format
-        let url = "https://raw.githubusercontent.com/mbhall88/rasusa/main/Cargo.toml";
-        let md5 = "77c811c1264306e607aff057420cf354";
+        let url = "https://raw.githubusercontent.com/mbhall88/rasusa/fa7e87b843419151cc4716c670adbb28544979b1/Cargo.toml";
+        let md5 = "95143b02c21cc9ce1980645d2db69937";
         let result = download_and_extract_tarball(url, &output_path, md5);
 
         // Assert that the function returns an ExtractionFailed error
