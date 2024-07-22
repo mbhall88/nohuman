@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.1](https://github.com/mbhall88/nohuman/compare/0.1.0...0.1.1) (2024-07-22)
+
+
+### Bug Fixes
+
+* IMPORTANT!! previous versions were emitting human reads [see [#2](https://github.com/mbhall88/nohuman/issues/2)] ([319eaed](https://github.com/mbhall88/nohuman/commit/319eaedfbafa5a762a0aa5bdedafc2fcbe68bfc9))
+* more robust validation of db directory ([0377cd6](https://github.com/mbhall88/nohuman/commit/0377cd612e190f651c276145531eb285cf7927ba))
+
 ## 0.1.0 (2023-12-14)
 
 
