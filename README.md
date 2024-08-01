@@ -111,7 +111,7 @@ The above will use the latest version. If you want to specify a version then use
 [tag][quay.io] (or commit) like so.
 
 ```shell
-$ VERSION="0.1.0"
+$ VERSION="0.1.1"
 $ URI="docker://quay.io/mbhall88/nohuman:${VERSION}"
 ```
 
