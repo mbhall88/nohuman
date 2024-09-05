@@ -184,7 +184,42 @@ or to specify a different path for the output
 $ nohuman -t 4 --out1 clean_1.fq --out2 clean_2.fq in_1.fq in_2.fq
 ```
 
-Note: output will always be uncompressed, even if compressed input is provided.
+> [!TIP]
+> If the input reads are gzip-compressed (file extension ending with '.gz'), then the output will also be compressed by default. Likewise, if the input reads are not compressed, then the output reads will also be uncompressed by default. These behaviours can be overruled by explicitly specifying output filenames.
+
+Compressed in, compressed out:
+
+```
+$ nohuman -t 4 in_1.fq.gz in_2.fq.gz
+```
+
+```
+$ nohuman -t 4 -o out_1.fq.gz -O out_2.fq.gz in_1.fq.gz in_2.fq.gz
+```
+
+Compressed in, uncompressed out:
+
+```
+$ nohuman -t 4 -o out_1.fq -O out_2.fq in_1.fq.gz in_2.fq.gz
+```
+
+Uncompressed in, uncompressed out:
+
+```
+$ nohuman -t 4 in_1.fq in_2.fq
+```
+
+```
+$ nohuman -t 4 -o out_1.fq -O out_2.fq in_1.fq in_2.fq
+```
+
+Uncompressed in, compressed out:
+
+```
+$ nohuman -t 4 -o out_1.fq.gz -O out_2.fq.gz in_1.fq in_2.fq
+```
+
+### Short usage
 
 ```
 $ nohuman -h
@@ -193,61 +228,74 @@ Remove human reads from a sequencing run
 Usage: nohuman [OPTIONS] [INPUT]...
 
 Arguments:
-  [INPUT]...  Input file(s) to remove human reads from
+  [INPUT]...  Input file(s) to remove human reads from.
 
 Options:
-  -o, --out1 <OUTPUT_1>  First output file
-  -O, --out2 <OUTPUT_2>  Second output file - if two input files given
-  -c, --check            Check that all required dependencies are available
-  -d, --download         Download the database
-  -D, --db <PATH>        Path to the database [default: /home/mihall/.nohuman/db]
-  -t, --threads <INT>    Number of threads to use in kraken2 [default: 1]
-  -v, --verbose          Set the logging level to verbose
-  -h, --help             Print help (see more with '--help')
-  -V, --version          Print version
+  -o, --out1 <OUTPUT_1>     First output file.
+  -O, --out2 <OUTPUT_2>     Second output file.
+  -c, --check               Check that all required dependencies are available and exit.
+  -d, --download            Download the database required for the process.
+  -D, --db <PATH>           Path to the database. [default: /home/mihall/.nohuman/db]
+  -l, --kraken2-log <PATH>  Write `kraken2` logging information to filename specified here.
+  -t, --threads <INT>       Number of threads to use in kraken2 (and compression, if applicable) [default: 1]
+  -v, --verbose             Set the `nohuman` logging level to verbose
+  -h, --help                Print help (see more with '--help')
+  -V, --version             Print version```
 ```
 
 ### Full usage
-
 ```
-$nohuman --help
+$ nohuman --help
 Remove human reads from a sequencing run
 
 Usage: nohuman [OPTIONS] [INPUT]...
 
 Arguments:
   [INPUT]...
-          Input file(s) to remove human reads from
+          Input file(s) to remove human reads from.
+
+          This is a required argument unless `--check` or `--download` is specified.
 
 Options:
   -o, --out1 <OUTPUT_1>
           First output file.
 
-          Defaults to the name of the first input file with the suffix "nohuman" appended. e.g. "input_1.fastq.gz" -> "input_1.nohuman.fq". NOTE: kraken2 output cannot be compressed, so the output will always be uncompressed.
+          Defaults to the name of the first input file with the suffix "nohuman" appended.
+          e.g., "input_1.fastq.gz" -> "input_1.nohuman.fq.gz".
+          If the file stem is `.gz`, the output will be compressed.
 
   -O, --out2 <OUTPUT_2>
-          Second output file - if two input files given.
+          Second output file.
 
-          Defaults to the name of the first input file with the suffix "nohuman" appended. e.g. "input_2.fastq.gz" -> "input_2.nohuman.fq". NOTE: kraken2 output cannot be compressed, so the output will always be uncompressed.
+          Defaults to the name of the second input file with the suffix "nohuman" appended.
+          e.g., "input_2.fastq.gz" -> "input_2.nohuman.fq.gz".
+          If the file stem is `.gz`, the output will be compressed.
 
   -c, --check
-          Check that all required dependencies are available
+          Check that all required dependencies are available and exit.
 
   -d, --download
-          Download the database
+          Download the database required for the process.
 
   -D, --db <PATH>
-          Path to the database
+          Path to the database.
+
+          Defaults to the database location specified in the home directory.
 
           [default: /home/mihall/.nohuman/db]
 
+  -l, --kraken2-log <PATH>
+          Write `kraken2` logging information to filename specified here.
+
+          If not specified, no `kraken2` log is saved.
+
   -t, --threads <INT>
-          Number of threads to use in kraken2
+          Number of threads to use in kraken2 (and compression, if applicable)
 
           [default: 1]
 
   -v, --verbose
-          Set the logging level to verbose
+          Set the `nohuman` logging level to verbose
 
   -h, --help
           Print help (see a summary with '-h')

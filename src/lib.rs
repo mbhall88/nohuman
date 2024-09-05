@@ -2,9 +2,11 @@ pub mod download;
 
 use serde::Deserialize;
 use std::ffi::OsStr;
-use std::io::{self, Write};
+use std::io::{self, Write, BufReader, BufWriter};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use gzp::{deflate::Gzip, ZBuilder};
+use std::fs::File;
 
 #[derive(Deserialize)]
 pub struct Config {
@@ -61,6 +63,30 @@ pub fn check_path_exists<S: AsRef<OsStr> + ?Sized>(s: &S) -> Result<PathBuf, Str
     } else {
         Err(format!("{:?} does not exist", path))
     }
+}
+
+/// Utility function to gzip output files using the gzp crate
+pub fn compress_output(input_path: &PathBuf, output_path: &PathBuf, threads: usize) -> io::Result<()> {
+    // Open the input file
+    let input_file = File::open(input_path)?;
+    let mut reader = BufReader::new(input_file);
+
+    // Create the output file with a `.gz` extension
+    let output_file = File::create(output_path.with_extension("gz"))?;
+    let writer = BufWriter::new(output_file);
+
+    // Configure the compressor with the specified number of threads (0 for single-threaded)
+    let mut compressor = ZBuilder::<Gzip, _>::new()
+        .num_threads(threads)
+        .from_writer(writer);
+
+    // Compress the input file data
+    io::copy(&mut reader, &mut compressor)?;
+
+    // Finalize the compression process and map the error to io::Error
+    compressor.finish().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+
+    Ok(())
 }
 
 /// Checks if the specified path is a directory and contains the required kraken2 db files.
