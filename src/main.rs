@@ -1,5 +1,4 @@
 use std::path::PathBuf;
-
 use anyhow::{bail, Context, Result};
 use clap::Parser;
 use env_logger::Builder;
@@ -184,11 +183,21 @@ fn main() -> Result<()> {
     // error out if input files are not provided, otherwise unwrap to a variable
     let input = args.input.context("No input files provided")?;
 
+info!("Parsing input files...");
+
 // Early check: determine if the input files are gzip, bzip2 (direct use), or lzma, zstd (decompress first)
 let kraken_input: Vec<PathBuf> = input
     .iter()
-    .map(|input_file| {
+    .enumerate()
+    .map(|(i, input_file)| {
         let ext = input_file.extension().unwrap_or_default().to_str().unwrap_or_default();
+        let file_size_mb = std::fs::metadata(input_file).unwrap().len() as f64 / 1_048_576.0;
+
+        let input_label = if i == 0 { "Input 1" } else { "Input 2" };
+        if args.verbose {
+            info!("{}: Detected format: {}, File size: {:.2} MB", input_label, ext, file_size_mb);
+        }
+
         match ext {
             "gz" | "bz2" => {
                 // Directly use gzip or bzip2 files
@@ -196,17 +205,21 @@ let kraken_input: Vec<PathBuf> = input
             }
             "xz" | "zst" => {
                 // Decompress lzma or zstd files
-                let decompressed_file = tempfile::Builder::new().suffix(".fq").tempfile().unwrap();  // Persist temporary file
+                if args.verbose {
+                    info!("{}: Decompressing for kraken2 compatibility...", input_label);
+                }
+                let decompressed_file = tempfile::Builder::new().suffix(".fq").tempfile().unwrap();
                 let decompressed_path = decompressed_file.path().to_path_buf();
 
                 // Decompress the file
-                read_with_niffler(vec![input_file.clone()], vec![decompressed_path.clone()], args.threads).unwrap(); 
+                read_with_niffler(vec![input_file.clone()], vec![decompressed_path.clone()], args.threads).unwrap();
 
-                // Log the decompressed file size
-                info!("Decompressed file size: {:?}", std::fs::metadata(&decompressed_path).unwrap().len());
-
-                decompressed_file.keep().unwrap();  // Keep the file alive
-                decompressed_path  // Return decompressed path
+                let decompressed_size_mb = std::fs::metadata(&decompressed_path).unwrap().len() as f64 / 1_048_576.0;
+                if args.verbose {
+                    info!("{}: Decompressed file size: {:.2} MB", input_label, decompressed_size_mb);
+                }
+                decompressed_file.keep().unwrap(); // Keep the file alive
+                decompressed_path // Return decompressed path
             }
             _ => {
                 // Assume the file is uncompressed
@@ -271,67 +284,83 @@ let kraken_input: Vec<PathBuf> = input
     info!("Kraken2 finished. Organising output...");
 
     if input.len() == 2 {
-        let out1 = args.out1.unwrap_or_else(|| {
+        let out1 = args.out1.clone().unwrap_or_else(|| {
             let parent = input[0].parent().unwrap();
-            let fname = match input[0].extension().unwrap_or_default().to_str() {
+            let fname: PathBuf = match input[0].extension().unwrap_or_default().to_str() {
                 Some("gz") | Some("bz2") | Some("xz") | Some("zst") => {
                     let no_ext = input[0].with_extension("");   // Strip compression extension
                     let stem = no_ext.file_stem().unwrap();
-                    format!("{}.nohuman.fq.{}", stem.to_string_lossy(), input[0].extension().unwrap().to_string_lossy()) // Append correct extension
+                    format!("{}.nohuman.fq.{}", stem.to_string_lossy(), input[0].extension().unwrap().to_string_lossy()).into() // Append correct extension
                 }
-                _ => format!("{}.nohuman.fq", input[0].file_stem().unwrap().to_string_lossy()),  // Uncompressed file
+                _ => format!("{}.nohuman.fq", input[0].file_stem().unwrap().to_string_lossy()).into(),  // Uncompressed file
             };
             parent.join(fname)
         });
-        let out2 = args.out2.unwrap_or_else(|| {
+    
+        let out2 = args.out2.clone().unwrap_or_else(|| {
             let parent = input[1].parent().unwrap();
-            let fname = match input[1].extension().unwrap_or_default().to_str() {
+            let fname: PathBuf = match input[1].extension().unwrap_or_default().to_str() {
                 Some("gz") | Some("bz2") | Some("xz") | Some("zst") => {
                     let no_ext = input[1].with_extension("");   // Strip compression extension
                     let stem = no_ext.file_stem().unwrap();
-                    format!("{}.nohuman.fq.{}", stem.to_string_lossy(), input[1].extension().unwrap().to_string_lossy()) // Append correct extension
+                    format!("{}.nohuman.fq.{}", stem.to_string_lossy(), input[1].extension().unwrap().to_string_lossy()).into() // Append correct extension
                 }
-                _ => format!("{}.nohuman.fq", input[1].file_stem().unwrap().to_string_lossy()),  // Uncompressed file
+                _ => format!("{}.nohuman.fq", input[1].file_stem().unwrap().to_string_lossy()).into(),  // Uncompressed file
             };
             parent.join(fname)
         });
-
+    
         let tmpout1 = tmpdir.path().join("kraken_out_1.fq");
         let tmpout2 = tmpdir.path().join("kraken_out_2.fq");
-
-        // write out the results
+    
+        // Write out the results
         write_with_niffler(vec![tmpout1.clone()], vec![out1.clone()], args.threads)?;
         write_with_niffler(vec![tmpout2.clone()], vec![out2.clone()], args.threads)?;
-
-        info!("Output files written to: {:?} and {:?}", &out1, &out2);
+    
+        // Log output format and file sizes
+        if args.verbose {
+            let output_format1 = out1.extension().unwrap_or_default().to_str().unwrap_or_default();
+            let output_format2 = out2.extension().unwrap_or_default().to_str().unwrap_or_default();
+            info!("Writing output files...");
+            let out1_size_mb = std::fs::metadata(&out1).unwrap().len() as f64 / 1_048_576.0;
+            let out2_size_mb = std::fs::metadata(&out2).unwrap().len() as f64 / 1_048_576.0;
+            info!("Output 1 ({} compression) written to: {} ({:.2} MB)", output_format1, out1.display(), out1_size_mb);
+            info!("Output 2 ({} compression) written to: {} ({:.2} MB)", output_format2, out2.display(), out2_size_mb);
+        }
     } else {
-        let out1 = args.out1.unwrap_or_else(|| {
+        let out1 = args.out1.clone().unwrap_or_else(|| {
             let parent = input[0].parent().unwrap();
-            let fname = match input[0].extension().unwrap_or_default().to_str() {
+            let fname: PathBuf = match input[0].extension().unwrap_or_default().to_str() {
                 Some("gz") | Some("bz2") | Some("xz") | Some("zst") => {
                     let no_ext = input[0].with_extension("");
                     let stem = no_ext.file_stem().unwrap();
-                    format!("{}.nohuman.fq.{}", stem.to_string_lossy(), input[0].extension().unwrap().to_string_lossy())
+                    format!("{}.nohuman.fq.{}", stem.to_string_lossy(), input[0].extension().unwrap().to_string_lossy()).into()
                 }
-                _ => format!("{}.nohuman.fq", input[0].file_stem().unwrap().to_string_lossy()),
+                _ => format!("{}.nohuman.fq", input[0].file_stem().unwrap().to_string_lossy()).into(),
             };
             parent.join(fname)
         });
-
+    
         let tmpout1 = tmpdir.path().join("kraken_out.fq");
-
-        // write out the results
+    
+        // Write out the results
         write_with_niffler(vec![tmpout1.clone()], vec![out1.clone()], args.threads)?;
-
-        info!("Output file written to: {:?}", &out1);
+    
+        // Log output format and file size
+        if args.verbose {
+            let output_format = out1.extension().unwrap_or_default().to_str().unwrap_or_default();
+            info!("Writing output file...");
+            let out1_size_mb = std::fs::metadata(&out1).unwrap().len() as f64 / 1_048_576.0;
+            info!("Output ({} compression) written to: {} ({:.2} MB)", output_format, out1.display(), out1_size_mb);
+        }
     }
 
-    // cleanup the temporary directory, but only issue a warning if it fails
+    // Cleanup the temporary directory, but only issue a warning if it fails
     if let Err(e) = tmpdir.close() {
         warn!("Failed to remove temporary output directory: {}", e);
     }
-
+    
     info!("Done.");
-
+    
     Ok(())
 }
