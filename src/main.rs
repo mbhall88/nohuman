@@ -184,27 +184,35 @@ fn main() -> Result<()> {
     // error out if input files are not provided, otherwise unwrap to a variable
     let input = args.input.context("No input files provided")?;
 
-    // Early check: determine if the input files are gzip, bzip2 (direct use), or lzma, zstd (decompress first)
-    let kraken_input: Vec<PathBuf> = input
-        .iter()
-        .map(|input_file| {
-            let ext = input_file.extension().unwrap_or_default().to_str().unwrap_or_default();
-            match ext {
-                "gz" | "bz2" => {
-                    // Directly use gzip or bzip2 files
-                    input_file.to_path_buf()
-                }
-                "xz" | "zst" => {
-                    // Decompress lzma or zstd files
-                    let decompressed_file = tempfile::NamedTempFile::new().unwrap().into_temp_path();
-                    read_with_niffler(vec![input_file.clone()], vec![decompressed_file.to_path_buf()], args.threads).unwrap(); // Decompress
-                    decompressed_file.to_path_buf()  // Return decompressed path
-                }
-                _ => {
-                    // Assume the file is uncompressed
-                    input_file.to_path_buf()
-                }
+// Early check: determine if the input files are gzip, bzip2 (direct use), or lzma, zstd (decompress first)
+let kraken_input: Vec<PathBuf> = input
+    .iter()
+    .map(|input_file| {
+        let ext = input_file.extension().unwrap_or_default().to_str().unwrap_or_default();
+        match ext {
+            "gz" | "bz2" => {
+                // Directly use gzip or bzip2 files
+                input_file.to_path_buf()
             }
+            "xz" | "zst" => {
+                // Decompress lzma or zstd files
+                let decompressed_file = tempfile::Builder::new().suffix(".fq").tempfile().unwrap();  // Persist temporary file
+                let decompressed_path = decompressed_file.path().to_path_buf();
+
+                // Decompress the file
+                read_with_niffler(vec![input_file.clone()], vec![decompressed_path.clone()], args.threads).unwrap(); 
+
+                // Log the decompressed file size
+                info!("Decompressed file size: {:?}", std::fs::metadata(&decompressed_path).unwrap().len());
+
+                decompressed_file.keep().unwrap();  // Keep the file alive
+                decompressed_path  // Return decompressed path
+            }
+            _ => {
+                // Assume the file is uncompressed
+                input_file.to_path_buf()
+            }
+        }
     })
     .collect();
 
