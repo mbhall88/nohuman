@@ -8,6 +8,70 @@ use std::process::Command;
 use gzp::{deflate::Gzip, ZBuilder};
 use std::fs::File;
 
+use niffler::{get_writer, compression, from_path, error::Error as NifflerError};
+use rayon::prelude::*;
+
+/// Compress a file using niffler with dynamic format detection based on the file extension
+pub fn write_with_niffler(input_paths: Vec<PathBuf>, output_paths: Vec<PathBuf>, threads: usize) -> Result<(), NifflerError> {
+    // Set the number of threads for parallelism using a local thread pool
+    rayon::ThreadPoolBuilder::new().num_threads(threads).build().unwrap().install(|| -> Result<(), NifflerError> {
+
+        // Parallelize the compression of multiple files
+        input_paths.into_par_iter().zip(output_paths.into_par_iter()).try_for_each(|(input_path, output_path)| -> Result<(), NifflerError> {
+            // Open the input file and detect its compression format
+            let input_file = File::open(&input_path).map_err(NifflerError::IOError)?;
+            let mut reader = BufReader::new(input_file);
+
+            // Create the output file with appropriate compression format based on the extension
+            let extension = output_path.extension().and_then(|ext| ext.to_str()).unwrap_or("");
+            let format = match extension {
+                "gz" => compression::Format::Gzip,
+                "bz2" => compression::Format::Bzip,
+                "xz" => compression::Format::Lzma,
+                "zst" => compression::Format::Zstd,
+                "zstd" => compression::Format::Zstd,
+                _ => compression::Format::No,
+            };
+
+            // Use niffler to create the output file
+            let output_file = File::create(&output_path).map_err(NifflerError::IOError)?;
+            let writer = BufWriter::new(output_file);
+            let mut compressor = get_writer(Box::new(writer), format, niffler::Level::One)?;
+
+            // Compress the input file data
+            io::copy(&mut reader, &mut compressor).map_err(NifflerError::IOError)?;
+
+            // Finalize the compression
+            compressor.flush().map_err(NifflerError::IOError)?;
+            Ok(())
+        })
+    })?;
+    
+    Ok(())
+}
+
+/// Decompress a file using niffler
+pub fn read_with_niffler(input_paths: Vec<PathBuf>, output_paths: Vec<PathBuf>, threads: usize) -> Result<(), NifflerError> {
+    // Set the number of threads for parallelism using a local thread pool
+    rayon::ThreadPoolBuilder::new().num_threads(threads).build().unwrap().install(|| -> Result<(), NifflerError> {
+
+        input_paths.into_par_iter().zip(output_paths.into_par_iter()).try_for_each(|(input_path, output_path)| -> Result<(), NifflerError> {
+            // Open the input file and detect its compression format
+            let (mut reader, _format) = from_path(&input_path)?;
+
+            // Write the decompressed output to a new file
+            let output_file = File::create(&output_path).map_err(NifflerError::IOError)?;
+            let mut writer = BufWriter::new(output_file);
+
+            io::copy(&mut reader, &mut writer).map_err(NifflerError::IOError)?;
+            writer.flush().map_err(NifflerError::IOError)?;
+            Ok(())
+        })
+    })?;
+
+    Ok(())
+}
+
 #[derive(Deserialize)]
 pub struct Config {
     pub database_url: String,

@@ -6,7 +6,7 @@ use env_logger::Builder;
 use lazy_static::lazy_static;
 use log::{debug, error, info, warn, LevelFilter};
 use nohuman::{
-    check_path_exists, download::download_database, validate_db_directory, compress_output, CommandRunner,
+    check_path_exists, download::download_database, validate_db_directory, write_with_niffler, read_with_niffler, CommandRunner
 };
 use std::process::{Command, Stdio};
 use std::fs::File;
@@ -42,7 +42,7 @@ struct Args {
     ///
     /// Defaults to the name of the first input file with the suffix "nohuman" appended.
     /// e.g., "input_1.fastq.gz" -> "input_1.nohuman.fq.gz". 
-    /// If the file stem is `.gz`, the output will be compressed.
+    /// If the file stem is one of `.gz`, `.bgz`, `.xz`, `.zst`, the output will be compressed accordingly.
     #[arg(
         short,
         long,
@@ -55,7 +55,7 @@ struct Args {
     ///
     /// Defaults to the name of the second input file with the suffix "nohuman" appended.
     /// e.g., "input_2.fastq.gz" -> "input_2.nohuman.fq.gz". 
-    /// If the file stem is `.gz`, the output will be compressed.
+    /// If the file stem is one of `.gz`, `.bgz`, `.xz`, `.zst`, the output will be compressed accordingly.
     #[arg(
         short = 'O',
         long,
@@ -184,6 +184,30 @@ fn main() -> Result<()> {
     // error out if input files are not provided, otherwise unwrap to a variable
     let input = args.input.context("No input files provided")?;
 
+    // Early check: determine if the input files are gzip, bzip2 (direct use), or lzma, zstd (decompress first)
+    let kraken_input: Vec<PathBuf> = input
+        .iter()
+        .map(|input_file| {
+            let ext = input_file.extension().unwrap_or_default().to_str().unwrap_or_default();
+            match ext {
+                "gz" | "bz2" => {
+                    // Directly use gzip or bzip2 files
+                    input_file.to_path_buf()
+                }
+                "xz" | "zst" => {
+                    // Decompress lzma or zstd files
+                    let decompressed_file = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+                    read_with_niffler(vec![input_file.clone()], vec![decompressed_file.to_path_buf()], args.threads).unwrap(); // Decompress
+                    decompressed_file.to_path_buf()  // Return decompressed path
+                }
+                _ => {
+                    // Assume the file is uncompressed
+                    input_file.to_path_buf()
+                }
+            }
+    })
+    .collect();
+
     let temp_kraken_output =
         tempfile::NamedTempFile::new().context("Failed to create temporary kraken output file")?;
     let threads = args.threads.to_string();
@@ -218,16 +242,16 @@ fn main() -> Result<()> {
     let outfile = outfile.to_string_lossy().to_string();
     kraken_cmd.extend(&["--unclassified-out", &outfile]);
 
-    kraken_cmd.extend(input.iter().map(|p| p.to_str().unwrap()));
+    kraken_cmd.extend(kraken_input.iter().map(|p| p.to_str().unwrap()));
     info!("Running kraken2...");
     debug!("With arguments: {:?}", &kraken_cmd);
 
     // Run the kraken2 command and capture stdout/stderr
-    let kraken_run = Command::new("kraken2")  // Replace "kraken2" with the actual command you run
-        .args(&kraken_cmd)                    // Pass arguments to the command
-        .stdout(Stdio::piped())               // Capture stdout
-        .stderr(Stdio::piped())               // Capture stderr
-        .output()                             // Execute the command and capture output
+    let kraken_run = Command::new("kraken2")
+        .args(&kraken_cmd)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
         .context("Failed to run kraken2")?;
 
     // Write stderr (= kraken2 logging info) to a log file
@@ -241,70 +265,56 @@ fn main() -> Result<()> {
     if input.len() == 2 {
         let out1 = args.out1.unwrap_or_else(|| {
             let parent = input[0].parent().unwrap();
-            let fname = if input[0].extension().unwrap_or_default() == "gz" {
-                // If .gz extension, remove both .gz and the prior extension
-                let no_ext = input[0].with_extension("");   // Strip .gz
-                let stem = no_ext.file_stem().unwrap();     // Strip the original extension (e.g., .fastq)
-                format!("{}.nohuman.fq.gz", stem.to_string_lossy()) // Append .nohuman.fq.gz
-            } else {
-                // If no .gz extension, just append .nohuman.fq
-                format!("{}.nohuman.fq", input[0].file_stem().unwrap().to_string_lossy())
+            let fname = match input[0].extension().unwrap_or_default().to_str() {
+                Some("gz") | Some("bz2") | Some("xz") | Some("zst") => {
+                    let no_ext = input[0].with_extension("");   // Strip compression extension
+                    let stem = no_ext.file_stem().unwrap();
+                    format!("{}.nohuman.fq.{}", stem.to_string_lossy(), input[0].extension().unwrap().to_string_lossy()) // Append correct extension
+                }
+                _ => format!("{}.nohuman.fq", input[0].file_stem().unwrap().to_string_lossy()),  // Uncompressed file
             };
             parent.join(fname)
         });
         let out2 = args.out2.unwrap_or_else(|| {
             let parent = input[1].parent().unwrap();
-            let fname = if input[1].extension().unwrap_or_default() == "gz" {
-                // If .gz extension, remove both .gz and the prior extension
-                let no_ext = input[1].with_extension("");   // Strip .gz
-                let stem = no_ext.file_stem().unwrap();     // Strip the original extension (e.g., .fastq)
-                format!("{}.nohuman.fq.gz", stem.to_string_lossy()) // Append .nohuman.fq.gz
-            } else {
-                // If no .gz extension, just append .nohuman.fq
-                format!("{}.nohuman.fq", input[1].file_stem().unwrap().to_string_lossy())
+            let fname = match input[1].extension().unwrap_or_default().to_str() {
+                Some("gz") | Some("bz2") | Some("xz") | Some("zst") => {
+                    let no_ext = input[1].with_extension("");   // Strip compression extension
+                    let stem = no_ext.file_stem().unwrap();
+                    format!("{}.nohuman.fq.{}", stem.to_string_lossy(), input[1].extension().unwrap().to_string_lossy()) // Append correct extension
+                }
+                _ => format!("{}.nohuman.fq", input[1].file_stem().unwrap().to_string_lossy()),  // Uncompressed file
             };
             parent.join(fname)
         });
-        
+
         let tmpout1 = tmpdir.path().join("kraken_out_1.fq");
         let tmpout2 = tmpdir.path().join("kraken_out_2.fq");
-    
-        // Check if the output file should be compressed
-        if out1.extension().unwrap_or_default() == "gz" {
-            compress_output(&tmpout1, &out1, args.threads)?;
-        } else {
-            std::fs::rename(tmpout1.clone(), &out1).unwrap();  // Cloning the PathBuf here
-        }
-        
-        if out2.extension().unwrap_or_default() == "gz" {
-            compress_output(&tmpout2, &out2, args.threads)?;
-        } else {
-            std::fs::rename(tmpout2.clone(), &out2).unwrap();  // Cloning tmpout2 if needed
-        }
+
+        // write out the results
+        write_with_niffler(vec![tmpout1.clone()], vec![out1.clone()], args.threads)?;
+        write_with_niffler(vec![tmpout2.clone()], vec![out2.clone()], args.threads)?;
 
         info!("Output files written to: {:?} and {:?}", &out1, &out2);
     } else {
         let out1 = args.out1.unwrap_or_else(|| {
             let parent = input[0].parent().unwrap();
-            let fname = if input[0].extension().unwrap_or_default() == "gz" {
-                let no_ext = input[0].with_extension("");
-                no_ext.file_stem().unwrap().to_owned()
-            } else {
-                input[0].file_stem().unwrap().to_owned()
+            let fname = match input[0].extension().unwrap_or_default().to_str() {
+                Some("gz") | Some("bz2") | Some("xz") | Some("zst") => {
+                    let no_ext = input[0].with_extension("");
+                    let stem = no_ext.file_stem().unwrap();
+                    format!("{}.nohuman.fq.{}", stem.to_string_lossy(), input[0].extension().unwrap().to_string_lossy())
+                }
+                _ => format!("{}.nohuman.fq", input[0].file_stem().unwrap().to_string_lossy()),
             };
-            let fname = format!("{}.nohuman.fq", fname.to_string_lossy());
             parent.join(fname)
         });
-        
+
         let tmpout1 = tmpdir.path().join("kraken_out.fq");
-        
-        // Check if the output file should be compressed
-        if out1.extension().unwrap_or_default() == "gz" {
-            compress_output(&tmpout1, &out1, args.threads)?;
-        } else {
-            std::fs::rename(tmpout1, &out1).unwrap();
-        }
-        
+
+        // write out the results
+        write_with_niffler(vec![tmpout1.clone()], vec![out1.clone()], args.threads)?;
+
         info!("Output file written to: {:?}", &out1);
     }
 
