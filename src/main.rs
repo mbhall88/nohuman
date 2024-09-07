@@ -5,7 +5,7 @@ use env_logger::Builder;
 use lazy_static::lazy_static;
 use log::{debug, error, info, warn, LevelFilter};
 use nohuman::{
-    check_path_exists, download::download_database, validate_db_directory, write_with_niffler, read_with_niffler, CommandRunner
+    check_path_exists, download::download_database, validate_db_directory, parse_kraken_stats, write_stats, write_with_niffler, read_with_niffler, CommandRunner
 };
 use std::process::{Command, Stdio};
 use std::fs::File;
@@ -119,6 +119,14 @@ struct Args {
         verbatim_doc_comment
     )]
     verbose: bool,
+    /// Generate a stats file (JSON format) with run information
+    #[arg(
+        short = 's',
+        long = "stats",
+        value_name = "STATS_FILE",
+        verbatim_doc_comment
+    )]
+    pub stats: Option<PathBuf>,
 }
 
 fn main() -> Result<()> {
@@ -194,20 +202,18 @@ let kraken_input: Vec<PathBuf> = input
         let file_size_mb = std::fs::metadata(input_file).unwrap().len() as f64 / 1_048_576.0;
 
         let input_label = if i == 0 { "Input 1" } else { "Input 2" };
-        if args.verbose {
-            info!("{}: Detected format: {}, File size: {:.2} MB", input_label, ext, file_size_mb);
-        }
+        debug!("{}: Detected format: {}, File size: {:.2} MB", input_label, ext, file_size_mb);
+
 
         match ext {
             "gz" | "bz2" => {
                 // Directly use gzip or bzip2 files
+                debug!("{}: Decompression will be handled by kraken2...", input_label);
                 input_file.to_path_buf()
             }
             "xz" | "zst" => {
                 // Decompress lzma or zstd files
-                if args.verbose {
-                    info!("{}: Decompressing for kraken2 compatibility...", input_label);
-                }
+                debug!("{}: Decompressing for kraken2 compatibility...", input_label);
                 let decompressed_file = tempfile::Builder::new().suffix(".fq").tempfile().unwrap();
                 let decompressed_path = decompressed_file.path().to_path_buf();
 
@@ -215,14 +221,13 @@ let kraken_input: Vec<PathBuf> = input
                 read_with_niffler(vec![input_file.clone()], vec![decompressed_path.clone()], args.threads).unwrap();
 
                 let decompressed_size_mb = std::fs::metadata(&decompressed_path).unwrap().len() as f64 / 1_048_576.0;
-                if args.verbose {
-                    info!("{}: Decompressed file size: {:.2} MB", input_label, decompressed_size_mb);
-                }
+                debug!("{}: Decompressed file size: {:.2} MB", input_label, decompressed_size_mb);
                 decompressed_file.keep().unwrap(); // Keep the file alive
                 decompressed_path // Return decompressed path
             }
             _ => {
                 // Assume the file is uncompressed
+                debug!("{}: File stem not in {{.gz, .bgz, .xz, .zst, .zstd}} --> assuming uncompressed...", input_label);
                 input_file.to_path_buf()
             }
         }
@@ -279,6 +284,39 @@ let kraken_input: Vec<PathBuf> = input
     if let Some(log_path) = &args.kraken2_log {
         let mut log_file = File::create(log_path).context("Failed to create log file")?;
         log_file.write_all(&kraken_run.stderr).context("Failed to write `kraken2` stderr to log file")?;
+        debug!("Kraken2 log written to: {:?}", &log_path);
+    }
+
+    if let Some(stats_file) = &args.stats {
+        // capture kraken2 version
+        let kraken_version_run = Command::new("kraken2")
+            .args(["--version"])
+            .stdout(Stdio::piped())
+            .output()
+            .context("Failed to run kraken2")?;
+        
+        // Convert output to string
+        let kraken_version_output = String::from_utf8_lossy(&kraken_version_run.stdout);
+
+        // Extract the version number
+        let kraken_version = kraken_version_output
+            .lines()
+            .find(|line| line.contains("version"))
+            .and_then(|line| line.split_whitespace().nth(2))  // Get the third word (the version number)
+            .unwrap_or("Unknown version")
+            .to_string();
+        
+        let kraken_stderr = String::from_utf8_lossy(&kraken_run.stderr).to_string();
+        let mut stats = parse_kraken_stats(&kraken_stderr)?;
+        stats.kraken2_version = kraken_version;
+        stats.input1 = input[0].display().to_string();
+        stats.output1 = args.out1.clone().unwrap_or_else(|| PathBuf::from("output_1.fq")).display().to_string();
+        if input.len() == 2 {
+            stats.input2 = input[1].display().to_string();
+            stats.output2 = args.out2.clone().unwrap_or_else(|| PathBuf::from("output_2.fq")).display().to_string();
+        }
+        write_stats(stats_file, &stats)?;
+        debug!("Run stats written to: {:?}", &stats_file);
     }
 
     info!("Kraken2 finished. Organising output...");
@@ -321,11 +359,11 @@ let kraken_input: Vec<PathBuf> = input
         if args.verbose {
             let output_format1 = out1.extension().unwrap_or_default().to_str().unwrap_or_default();
             let output_format2 = out2.extension().unwrap_or_default().to_str().unwrap_or_default();
-            info!("Writing output files...");
+            debug!("Writing output files...");
             let out1_size_mb = std::fs::metadata(&out1).unwrap().len() as f64 / 1_048_576.0;
             let out2_size_mb = std::fs::metadata(&out2).unwrap().len() as f64 / 1_048_576.0;
-            info!("Output 1 ({} compression) written to: {} ({:.2} MB)", output_format1, out1.display(), out1_size_mb);
-            info!("Output 2 ({} compression) written to: {} ({:.2} MB)", output_format2, out2.display(), out2_size_mb);
+            debug!("Output 1 ({} compression) written to: {} ({:.2} MB)", output_format1, out1.display(), out1_size_mb);
+            debug!("Output 2 ({} compression) written to: {} ({:.2} MB)", output_format2, out2.display(), out2_size_mb);
         }
     } else {
         let out1 = args.out1.clone().unwrap_or_else(|| {
@@ -349,9 +387,9 @@ let kraken_input: Vec<PathBuf> = input
         // Log output format and file size
         if args.verbose {
             let output_format = out1.extension().unwrap_or_default().to_str().unwrap_or_default();
-            info!("Writing output file...");
+            debug!("Writing output file...");
             let out1_size_mb = std::fs::metadata(&out1).unwrap().len() as f64 / 1_048_576.0;
-            info!("Output ({} compression) written to: {} ({:.2} MB)", output_format, out1.display(), out1_size_mb);
+            debug!("Output ({} compression) written to: {} ({:.2} MB)", output_format, out1.display(), out1_size_mb);
         }
     }
 

@@ -7,9 +7,86 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use gzp::{deflate::Gzip, ZBuilder};
 use std::fs::File;
+use serde::Serialize;
+use anyhow::{Context, Result};
+use serde_json;
 
 use niffler::{get_writer, compression, from_path, error::Error as NifflerError};
 use rayon::prelude::*;
+
+/// Parse Kraken2 stderr for stats
+pub fn parse_kraken_stats(kraken_stderr: &str) -> Result<Stats, anyhow::Error> {
+    let mut total_sequences: usize = 0;
+    let mut classified_sequences: usize = 0;
+    let mut unclassified_sequences: usize = 0;
+
+    // Parse Kraken2 stderr output line by line
+    for line in kraken_stderr.lines() {
+        if line.contains("processed") {
+            total_sequences = line.split_whitespace()
+                .nth(0)
+                .unwrap()
+                .replace(",", "") // Handle commas in large numbers
+                .parse::<usize>()
+                .expect("Failed to parse total sequences");
+        } else if line.contains("sequences classified") {
+            classified_sequences = line.split_whitespace()
+                .nth(0)
+                .unwrap()
+                .replace(",", "") // Handle commas in large numbers
+                .parse::<usize>()
+                .expect("Failed to parse classified sequences");
+        } else if line.contains("sequences unclassified") {
+            unclassified_sequences = line.split_whitespace()
+                .nth(0)
+                .unwrap()
+                .replace(",", "") // Handle commas in large numbers
+                .parse::<usize>()
+                .expect("Failed to parse unclassified sequences");
+        }
+    }
+
+    let sequences_removed = classified_sequences;
+    let sequences_remaining = unclassified_sequences;
+    let proportion_removed = sequences_removed as f64 / total_sequences as f64;
+
+    // Return stats
+    Ok(Stats {
+        nohuman_version: env!("CARGO_PKG_VERSION").to_string(),
+        kraken2_version: "".to_string(),  // Placeholder, to be filled later
+        input1: "".to_string(),  // Placeholder, to be filled later
+        input2: "".to_string(),  // Placeholder, to be filled later
+        output1: "".to_string(), // Placeholder, to be filled later
+        output2: "".to_string(), // Placeholder, to be filled later
+        total_sequences,
+        sequences_removed,
+        sequences_remaining,
+        proportion_removed,
+    })
+}
+
+/// Struct for JSON statistics output
+#[derive(Serialize)]
+pub struct Stats {
+    pub nohuman_version: String,
+    pub kraken2_version: String,
+    pub input1: String,
+    pub input2: String,
+    pub output1: String,
+    pub output2: String,
+    pub total_sequences: usize,
+    pub sequences_remaining: usize,
+    pub sequences_removed: usize,
+    pub proportion_removed: f64,
+}
+
+/// Write stats to a JSON file
+pub fn write_stats(stats_file: &PathBuf, stats: &Stats) -> Result<(), anyhow::Error> {
+    let json_data = serde_json::to_string_pretty(&stats)?;
+    std::fs::write(stats_file, format!("{}\n", json_data))
+        .context("Failed to write stats to file")?;
+    Ok(())
+}
 
 /// Compress a file using niffler with dynamic format detection based on the file extension
 pub fn write_with_niffler(input_paths: Vec<PathBuf>, output_paths: Vec<PathBuf>, threads: usize) -> Result<(), NifflerError> {
@@ -77,6 +154,7 @@ pub struct Config {
     pub database_url: String,
     pub database_md5: String,
 }
+
 
 impl Config {
     pub fn new(database_url: &str, database_md5: &str) -> Self {
