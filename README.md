@@ -260,8 +260,10 @@ Options:
   -s, --stats <STATS_FILE>         Generate a stats file (JSON format) with run information
   -h, --help                       Print help (see more with '--help')
   -V, --version                    Print version```
+```
 
 ### Full usage
+
 ```
 $ nohuman --help
 Remove human reads from a sequencing run
