@@ -271,16 +271,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
-name = "bgzip"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b64fd8980fb64af5951bc05de7772b598150a6f7eac42ec17f73e8489915f99b"
-dependencies = [
- "flate2",
- "thiserror",
-]
-
-[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1121,6 +1111,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a7c45fc6fcf5b527d3cf89c1dee8c327943984b0dc8bfcf6e100473b00969e63"
 dependencies = [
  "liblzma-sys",
+ "num_cpus",
 ]
 
 [[package]]
@@ -1260,7 +1251,6 @@ version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bd625dd485c2d20bdb98d7ec364f798b256ac09997ef18b4274be2168f53a647"
 dependencies = [
- "bgzip",
  "bzip2",
  "cfg-if",
  "flate2",
@@ -1283,6 +1273,7 @@ dependencies = [
  "gzp",
  "indicatif",
  "lazy_static",
+ "liblzma",
  "log",
  "md5",
  "niffler",
@@ -1294,6 +1285,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "toml",
+ "zstd",
 ]
 
 [[package]]

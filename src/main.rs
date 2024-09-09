@@ -5,11 +5,23 @@ use env_logger::Builder;
 use lazy_static::lazy_static;
 use log::{debug, error, info, warn, LevelFilter};
 use nohuman::{
-    check_path_exists, download::download_database, validate_db_directory, parse_kraken_stats, write_stats, write_with_niffler, read_with_niffler, CommandRunner
+    check_path_exists, 
+    download::download_database, 
+    validate_db_directory, 
+    parse_kraken_stats, 
+    write_stats, 
+    write_with_niffler, 
+    write_with_gzp, 
+    write_with_zstd, 
+    read_with_niffler, 
+    read_with_liblzma, 
+    write_with_liblzma, 
+    CommandRunner
 };
 use std::process::{Command, Stdio};
 use std::fs::File;
 use std::io::Write;
+use rayon::prelude::*;
 
 lazy_static! {
     static ref DEFAULT_DB_LOCATION: String = {
@@ -41,7 +53,8 @@ struct Args {
     ///
     /// Defaults to the name of the first input file with the suffix "nohuman" appended.
     /// e.g., "input_1.fastq.gz" -> "input_1.nohuman.fq.gz". 
-    /// If the file stem is one of `.gz`, `.bgz`, `.xz`, `.zst`, the output will be compressed accordingly.
+    /// If the file stem is one of `.gz`, `.bgz`, `.xz`, `.zst`, the output will be
+    /// compressed accordingly.    
     #[arg(
         short,
         long,
@@ -54,7 +67,8 @@ struct Args {
     ///
     /// Defaults to the name of the second input file with the suffix "nohuman" appended.
     /// e.g., "input_2.fastq.gz" -> "input_2.nohuman.fq.gz". 
-    /// If the file stem is one of `.gz`, `.bgz`, `.xz`, `.zst`, the output will be compressed accordingly.
+    /// If the file stem is one of `.gz`, `.bgz`, `.xz`, `.zst`, the output will be
+    /// compressed accordingly.    
     #[arg(
         short = 'O',
         long,
@@ -102,7 +116,7 @@ struct Args {
     )]
     kraken2_log: Option<PathBuf>,
 
-    /// Number of threads to use in kraken2 (and compression, if applicable)
+    /// Number of threads to use in kraken2 
     #[arg(
         short,
         long,
@@ -112,6 +126,16 @@ struct Args {
     )]
     threads: usize,
 
+    /// Number of threads to use for compression.
+    ///
+    /// Defaults to the same value as `--threads` if not specified by the user.
+    #[arg(
+        long,
+        value_name = "INT",
+        verbatim_doc_comment
+    )]
+    compression_threads: Option<usize>,
+
     /// Set the `nohuman` logging level to verbose
     #[arg(
         short,
@@ -119,6 +143,7 @@ struct Args {
         verbatim_doc_comment
     )]
     verbose: bool,
+
     /// Generate a stats file (JSON format) with run information
     #[arg(
         short = 's',
@@ -211,7 +236,20 @@ let kraken_input: Vec<PathBuf> = input
                 debug!("{}: Decompression will be handled by kraken2...", input_label);
                 input_file.to_path_buf()
             }
-            "xz" | "zst" => {
+            "xz" => {
+                debug!("{}: Decompressing for kraken2 compatibility...", input_label);
+                let decompressed_file = tempfile::Builder::new().suffix(".fq").tempfile().unwrap();
+                let decompressed_path = decompressed_file.path().to_path_buf();
+
+                // Decompress the file using read_with_liblzma
+                read_with_liblzma(&input_file, &decompressed_path).unwrap();
+
+                let decompressed_size_mb = std::fs::metadata(&decompressed_path).unwrap().len() as f64 / 1_048_576.0;
+                debug!("{}: Decompressed file size: {:.2} MB", input_label, decompressed_size_mb);
+                decompressed_file.keep().unwrap(); // Keep the file alive
+                decompressed_path // Return decompressed path
+            }
+            "zst" => {
                 // Decompress lzma or zstd files
                 debug!("{}: Decompressing for kraken2 compatibility...", input_label);
                 let decompressed_file = tempfile::Builder::new().suffix(".fq").tempfile().unwrap();
@@ -237,6 +275,7 @@ let kraken_input: Vec<PathBuf> = input
     let temp_kraken_output =
         tempfile::NamedTempFile::new().context("Failed to create temporary kraken output file")?;
     let threads = args.threads.to_string();
+    let compression_threads = args.compression_threads.unwrap_or(args.threads);
     let db = validate_db_directory(&args.database)
         .map_err(|e| anyhow::anyhow!(e))?
         .to_string_lossy()
@@ -351,10 +390,39 @@ let kraken_input: Vec<PathBuf> = input
         let tmpout1 = tmpdir.path().join("kraken_out_1.fq");
         let tmpout2 = tmpdir.path().join("kraken_out_2.fq");
     
-        // Write out the results
-        write_with_niffler(vec![tmpout1.clone()], vec![out1.clone()], args.threads)?;
-        write_with_niffler(vec![tmpout2.clone()], vec![out2.clone()], args.threads)?;
-    
+        // Write out the results based on the extension
+        let mut niffler_pairs = Vec::new(); // Store niffler compression pairs
+
+        // Check and handle out1
+        if out1.extension().unwrap_or_default() == "gz" {
+            write_with_gzp(&tmpout1, &out1, compression_threads)?;
+        } else if out1.extension().unwrap_or_default() == "zst" || out1.extension().unwrap_or_default() == "zstd" {
+            write_with_zstd(&tmpout1, &out1, compression_threads)?;
+        } else if out1.extension().unwrap_or_default() == "xz" {
+            write_with_liblzma(&tmpout1, &out1, compression_threads, 6)?;
+        } else {
+            niffler_pairs.push((vec![tmpout1.clone()], vec![out1.clone()]));
+        }
+
+        // Check and handle out2
+        if out2.extension().unwrap_or_default() == "gz" {
+            write_with_gzp(&tmpout2, &out2, compression_threads)?;
+        } else if out2.extension().unwrap_or_default() == "zst" || out2.extension().unwrap_or_default() == "zstd" {
+            write_with_zstd(&tmpout2, &out2, compression_threads)?;
+        } else if out2.extension().unwrap_or_default() == "xz" {
+            write_with_liblzma(&tmpout2, &out2, compression_threads, 6)?;
+        } else {
+            niffler_pairs.push((vec![tmpout2.clone()], vec![out2.clone()]));
+        }
+
+        // If there are files to be processed with niffler, compress them in parallel.
+        // In this case, both files will be compressed in parallel with 1 thread each.
+        if !niffler_pairs.is_empty() {
+            niffler_pairs.into_par_iter().try_for_each(|(tmpout, out)| {
+                write_with_niffler(tmpout, out, 2)
+            })?;
+        }        
+
         // Log output format and file sizes
         if args.verbose {
             let output_format1 = out1.extension().unwrap_or_default().to_str().unwrap_or_default();
@@ -381,9 +449,18 @@ let kraken_input: Vec<PathBuf> = input
     
         let tmpout1 = tmpdir.path().join("kraken_out.fq");
     
-        // Write out the results
-        write_with_niffler(vec![tmpout1.clone()], vec![out1.clone()], args.threads)?;
-    
+        // Write out the results for out1
+        if out1.extension().unwrap_or_default() == "gz" {
+            write_with_gzp(&tmpout1, &out1, compression_threads)?;
+        } else if out1.extension().unwrap_or_default() == "zst" || out1.extension().unwrap_or_default() == "zstd" {
+            write_with_zstd(&tmpout1, &out1, compression_threads)?;
+        } else if out1.extension().unwrap_or_default() == "xz" {
+            write_with_liblzma(&tmpout1, &out1, compression_threads, 6)?;
+        } else {
+            write_with_niffler(vec![tmpout1.clone()], vec![out1.clone()], 1)?;
+        }
+
+        
         // Log output format and file size
         if args.verbose {
             let output_format = out1.extension().unwrap_or_default().to_str().unwrap_or_default();

@@ -5,14 +5,131 @@ use std::ffi::OsStr;
 use std::io::{self, Write, BufReader, BufWriter};
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use gzp::{deflate::Gzip, ZBuilder};
 use std::fs::File;
 use serde::Serialize;
 use anyhow::{Context, Result};
 use serde_json;
+use rayon::prelude::*;
 
 use niffler::{get_writer, compression, from_path, error::Error as NifflerError};
-use rayon::prelude::*;
+use gzp::{deflate::Gzip, ZBuilder};
+use zstd::stream::Encoder as ZstdEncoder;
+use liblzma::write::XzEncoder;
+use liblzma::read::XzDecoder;
+
+
+/// Function to write and compress using XZ with configurable threads
+pub fn write_with_liblzma(input_path: &PathBuf, output_path: &PathBuf, threads: usize, level: u32) -> io::Result<()> {
+    // Open the input file
+    let input_file = File::open(input_path)?;
+    let mut reader = BufReader::new(input_file);
+
+    // Create the output file with a `.xz` extension
+    let output_file = File::create(output_path.with_extension("xz"))?;
+    let writer = BufWriter::new(output_file);
+
+    // Choose the encoder based on the number of threads
+    let mut encoder = if threads > 1 {
+        // Use multithreaded encoder
+        XzEncoder::new_parallel(writer, level)  // Parallel compression with the specified level
+    } else {
+        // Use single-threaded encoder
+        XzEncoder::new(writer, level)  // Single-thread compression with the specified level
+    };
+
+    // Compress the input file data
+    io::copy(&mut reader, &mut encoder)?;
+
+    // Finalize the compression process
+    encoder.finish()?;
+
+    Ok(())
+}
+
+// /// Function to write and compress using parallel XZ with multiple threads
+// /// Note: removed as using liblzma instead
+// pub fn write_with_xz2(input_path: &PathBuf, output_path: &PathBuf, threads: usize) -> Result<()> {
+//     // Open the input file
+//     let input_file = File::open(input_path)?;
+//     let mut reader = BufReader::new(input_file);
+
+//     // Create the output file with a `.xz` extension
+//     let output_file = File::create(output_path.with_extension("xz"))?;
+//     let writer = BufWriter::new(output_file);
+
+//     // Set up LZMA options for compression
+//     let mut lzma_options = LzmaOptions::new_preset(6)?;  // Use default preset level (6)
+//     // lzma_options.dict_size(64 * 1024 * 1024);            // Set dictionary size
+//     // lzma_options.match_finder(xz2::stream::MatchFinder::BinaryTree4);  // Best compression ratio
+
+//     // Build the XZ filters
+//     let mut filters = Filters::new();
+//     filters.lzma2(&lzma_options);
+
+//     // Build a multithreaded XZ stream
+//     let mut mt_stream = MtStreamBuilder::new()
+//         .threads(threads as u32)   // Set the number of threads
+//         .filters(filters)          // Apply LZMA filters
+//         .check(Check::Crc32)       // Set an integrity check (CRC32 here)
+//         .encoder()?;               // Initialize the encoder
+
+//     // Wrap the encoder with BufWriter for efficient writing
+//     let mut encoder = XzEncoder::new_stream(writer, mt_stream);
+
+//     // Compress the input file data
+//     io::copy(&mut reader, &mut encoder)?;
+
+//     // Finalize the compression process
+//     encoder.finish()?;
+
+//     Ok(())
+// }
+
+/// Function to read and decompress using liblzma
+pub fn read_with_liblzma(input_path: &PathBuf, output_path: &PathBuf) -> io::Result<()> {
+    // Open the input file and create an XzDecoder
+    let input_file = File::open(input_path)?;
+    let mut reader = BufReader::new(XzDecoder::new_parallel(input_file)); // Using parallel decoder
+
+    // Write the decompressed output to a new file
+    let output_file = File::create(output_path)?;
+    let mut writer = BufWriter::new(output_file);
+
+    // Copy the decompressed data to the output file
+    io::copy(&mut reader, &mut writer)?;
+    writer.flush()?;
+
+    Ok(())
+}
+
+/// Utility function to compress files using the zstd crate with configurable multithreading
+pub fn write_with_zstd(input_path: &PathBuf, output_path: &PathBuf, threads: usize) -> io::Result<()> {
+    // Open the input file
+    let input_file = File::open(input_path)?;
+    let mut reader = BufReader::new(input_file);
+
+    // Create the output file with a `.zst` extension
+    let output_file = File::create(output_path.with_extension("zst"))?;
+    let writer = BufWriter::new(output_file);
+
+    // Configure the compressor based on the number of threads
+    let mut encoder = if threads > 1 {
+        let mut encoder = ZstdEncoder::new(writer, 0)?;
+        encoder.multithread(threads as u32)?; // Enable multithreading
+        encoder
+    } else {
+        ZstdEncoder::new(writer, 0)? // Single-threaded mode
+    };
+
+    // Compress the input file data
+    io::copy(&mut reader, &mut encoder)?;
+
+    // Finalize the compression process
+    encoder.finish()?;
+
+    Ok(())
+}
+
 
 /// Parse Kraken2 stderr for stats
 pub fn parse_kraken_stats(kraken_stderr: &str) -> Result<Stats, anyhow::Error> {
@@ -208,7 +325,7 @@ pub fn check_path_exists<S: AsRef<OsStr> + ?Sized>(s: &S) -> Result<PathBuf, Str
 }
 
 /// Utility function to gzip output files using the gzp crate
-pub fn compress_output(input_path: &PathBuf, output_path: &PathBuf, threads: usize) -> io::Result<()> {
+pub fn write_with_gzp(input_path: &PathBuf, output_path: &PathBuf, threads: usize) -> io::Result<()> {
     // Open the input file
     let input_file = File::open(input_path)?;
     let mut reader = BufReader::new(input_file);
