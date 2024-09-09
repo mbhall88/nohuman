@@ -10,18 +10,13 @@ use nohuman::{
     validate_db_directory, 
     parse_kraken_stats, 
     write_stats, 
-    write_with_niffler, 
-    write_with_gzp, 
-    write_with_zstd, 
+    write_output, 
     read_with_niffler, 
-    read_with_liblzma, 
-    write_with_liblzma, 
     CommandRunner
 };
 use std::process::{Command, Stdio};
 use std::fs::File;
 use std::io::Write;
-use rayon::prelude::*;
 
 lazy_static! {
     static ref DEFAULT_DB_LOCATION: String = {
@@ -136,6 +131,15 @@ struct Args {
     )]
     compression_threads: Option<usize>,
 
+    /// Allow overwriting of existing output files.
+    ///
+    /// If not provided, the process will error out if the output file(s) already exist.
+    #[arg(
+        long,
+        verbatim_doc_comment
+    )]
+    overwrite: bool,
+
     /// Set the `nohuman` logging level to verbose
     #[arg(
         short,
@@ -156,6 +160,26 @@ struct Args {
 
 fn main() -> Result<()> {
     let args = Args::parse();
+
+    // Early check: Output1 and Output2 must not be the same file.
+    if let (Some(out1), Some(out2)) = (&args.out1, &args.out2) {
+        if out1 == out2 {
+            bail!("Output1 and Output2 cannot be the same file. Please provide distinct output file names.");
+        }
+    }
+
+    // Early check: Ensure that existing output files won't be overwritten unless `--overwrite` is provided
+    if let Some(ref out1) = args.out1 {
+        if out1.exists() && !args.overwrite {
+            bail!("Output file '{}' already exists. Use '--overwrite' to allow overwriting existing files.", out1.display());
+        }
+    }
+
+    if let Some(ref out2) = args.out2 {
+        if out2.exists() && !args.overwrite {
+            bail!("Output file '{}' already exists. Use '--overwrite' to allow overwriting existing files.", out2.display());
+        }
+    }
 
     // Initialize logger
     let log_lvl = if args.verbose {
@@ -219,6 +243,8 @@ fn main() -> Result<()> {
 info!("Parsing input files...");
 
 // Early check: determine if the input files are gzip, bzip2 (direct use), or lzma, zstd (decompress first)
+let (mut files_to_decompress, mut output_paths): (Vec<PathBuf>, Vec<PathBuf>) = (Vec::new(), Vec::new());
+
 let kraken_input: Vec<PathBuf> = input
     .iter()
     .enumerate()
@@ -229,48 +255,44 @@ let kraken_input: Vec<PathBuf> = input
         let input_label = if i == 0 { "Input 1" } else { "Input 2" };
         debug!("{}: Detected format: {}, File size: {:.2} MB", input_label, ext, file_size_mb);
 
-
         match ext {
-            "gz" | "bz2" => {
+            "gz" | "bz2" | "bgz" => {
                 // Directly use gzip or bzip2 files
                 debug!("{}: Decompression will be handled by kraken2...", input_label);
                 input_file.to_path_buf()
             }
-            "xz" => {
+            "xz" | "lzma" | "zst" | "zstd" => {
                 debug!("{}: Decompressing for kraken2 compatibility...", input_label);
                 let decompressed_file = tempfile::Builder::new().suffix(".fq").tempfile().unwrap();
                 let decompressed_path = decompressed_file.path().to_path_buf();
 
-                // Decompress the file using read_with_liblzma
-                read_with_liblzma(&input_file, &decompressed_path).unwrap();
+                // Collect paths for decompression
+                files_to_decompress.push(input_file.clone());
+                output_paths.push(decompressed_path.clone());
 
-                let decompressed_size_mb = std::fs::metadata(&decompressed_path).unwrap().len() as f64 / 1_048_576.0;
-                debug!("{}: Decompressed file size: {:.2} MB", input_label, decompressed_size_mb);
-                decompressed_file.keep().unwrap(); // Keep the file alive
-                decompressed_path // Return decompressed path
-            }
-            "zst" => {
-                // Decompress lzma or zstd files
-                debug!("{}: Decompressing for kraken2 compatibility...", input_label);
-                let decompressed_file = tempfile::Builder::new().suffix(".fq").tempfile().unwrap();
-                let decompressed_path = decompressed_file.path().to_path_buf();
-
-                // Decompress the file
-                read_with_niffler(vec![input_file.clone()], vec![decompressed_path.clone()], args.threads).unwrap();
-
-                let decompressed_size_mb = std::fs::metadata(&decompressed_path).unwrap().len() as f64 / 1_048_576.0;
-                debug!("{}: Decompressed file size: {:.2} MB", input_label, decompressed_size_mb);
-                decompressed_file.keep().unwrap(); // Keep the file alive
-                decompressed_path // Return decompressed path
+                decompressed_path // Return the decompressed path for Kraken2
             }
             _ => {
                 // Assume the file is uncompressed
-                debug!("{}: File stem not in {{.gz, .bgz, .xz, .zst, .zstd}} --> assuming uncompressed...", input_label);
+                debug!("{}: File stem not in {{.gz, .bgz, .bz2, .xz, .lzma, .zst, .zstd}} --> assuming uncompressed...", input_label);
                 input_file.to_path_buf()
             }
         }
     })
     .collect();
+
+    // If there are files to decompress, use read_with_niffler
+    if !files_to_decompress.is_empty() {
+        let compression_threads = args.compression_threads.unwrap_or(1);
+
+        if compression_threads > 1 {
+            // Parallel decompression using 1 thread per file
+            read_with_niffler(files_to_decompress, output_paths, compression_threads)?;
+        } else {
+            // Sequential decompression using a single thread
+            read_with_niffler(files_to_decompress, output_paths, 1)?;
+        }
+    }
 
     let temp_kraken_output =
         tempfile::NamedTempFile::new().context("Failed to create temporary kraken output file")?;
@@ -364,7 +386,7 @@ let kraken_input: Vec<PathBuf> = input
         let out1 = args.out1.clone().unwrap_or_else(|| {
             let parent = input[0].parent().unwrap();
             let fname: PathBuf = match input[0].extension().unwrap_or_default().to_str() {
-                Some("gz") | Some("bz2") | Some("xz") | Some("zst") => {
+                Some("gz") | Some("bz2") | Some("xz") | Some("lzma") | Some("zst") | Some("zstd") => {
                     let no_ext = input[0].with_extension("");   // Strip compression extension
                     let stem = no_ext.file_stem().unwrap();
                     format!("{}.nohuman.fq.{}", stem.to_string_lossy(), input[0].extension().unwrap().to_string_lossy()).into() // Append correct extension
@@ -377,7 +399,7 @@ let kraken_input: Vec<PathBuf> = input
         let out2 = args.out2.clone().unwrap_or_else(|| {
             let parent = input[1].parent().unwrap();
             let fname: PathBuf = match input[1].extension().unwrap_or_default().to_str() {
-                Some("gz") | Some("bz2") | Some("xz") | Some("zst") => {
+                Some("gz") | Some("bgz") | Some("bz2") | Some("xz") | Some("lzma") | Some("zst") | Some("zstd") => {
                     let no_ext = input[1].with_extension("");   // Strip compression extension
                     let stem = no_ext.file_stem().unwrap();
                     format!("{}.nohuman.fq.{}", stem.to_string_lossy(), input[1].extension().unwrap().to_string_lossy()).into() // Append correct extension
@@ -390,44 +412,14 @@ let kraken_input: Vec<PathBuf> = input
         let tmpout1 = tmpdir.path().join("kraken_out_1.fq");
         let tmpout2 = tmpdir.path().join("kraken_out_2.fq");
     
-        // Write out the results based on the extension
-        let mut niffler_pairs = Vec::new(); // Store niffler compression pairs
-
-        // Check and handle out1
-        if out1.extension().unwrap_or_default() == "gz" {
-            write_with_gzp(&tmpout1, &out1, compression_threads)?;
-        } else if out1.extension().unwrap_or_default() == "zst" || out1.extension().unwrap_or_default() == "zstd" {
-            write_with_zstd(&tmpout1, &out1, compression_threads)?;
-        } else if out1.extension().unwrap_or_default() == "xz" {
-            write_with_liblzma(&tmpout1, &out1, compression_threads, 6)?;
-        } else {
-            niffler_pairs.push((vec![tmpout1.clone()], vec![out1.clone()]));
-        }
-
-        // Check and handle out2
-        if out2.extension().unwrap_or_default() == "gz" {
-            write_with_gzp(&tmpout2, &out2, compression_threads)?;
-        } else if out2.extension().unwrap_or_default() == "zst" || out2.extension().unwrap_or_default() == "zstd" {
-            write_with_zstd(&tmpout2, &out2, compression_threads)?;
-        } else if out2.extension().unwrap_or_default() == "xz" {
-            write_with_liblzma(&tmpout2, &out2, compression_threads, 6)?;
-        } else {
-            niffler_pairs.push((vec![tmpout2.clone()], vec![out2.clone()]));
-        }
-
-        // If there are files to be processed with niffler, compress them in parallel.
-        // In this case, both files will be compressed in parallel with 1 thread each.
-        if !niffler_pairs.is_empty() {
-            niffler_pairs.into_par_iter().try_for_each(|(tmpout, out)| {
-                write_with_niffler(tmpout, out, 2)
-            })?;
-        }        
+        // Write out the results with compression based on the extension
+        debug!("Writing output files...");
+        write_output(&tmpout1, Some(&tmpout2), &out1, Some(&out2), compression_threads)?;
 
         // Log output format and file sizes
         if args.verbose {
             let output_format1 = out1.extension().unwrap_or_default().to_str().unwrap_or_default();
             let output_format2 = out2.extension().unwrap_or_default().to_str().unwrap_or_default();
-            debug!("Writing output files...");
             let out1_size_mb = std::fs::metadata(&out1).unwrap().len() as f64 / 1_048_576.0;
             let out2_size_mb = std::fs::metadata(&out2).unwrap().len() as f64 / 1_048_576.0;
             debug!("Output 1 ({} compression) written to: {} ({:.2} MB)", output_format1, out1.display(), out1_size_mb);
@@ -450,21 +442,12 @@ let kraken_input: Vec<PathBuf> = input
         let tmpout1 = tmpdir.path().join("kraken_out.fq");
     
         // Write out the results for out1
-        if out1.extension().unwrap_or_default() == "gz" {
-            write_with_gzp(&tmpout1, &out1, compression_threads)?;
-        } else if out1.extension().unwrap_or_default() == "zst" || out1.extension().unwrap_or_default() == "zstd" {
-            write_with_zstd(&tmpout1, &out1, compression_threads)?;
-        } else if out1.extension().unwrap_or_default() == "xz" {
-            write_with_liblzma(&tmpout1, &out1, compression_threads, 6)?;
-        } else {
-            write_with_niffler(vec![tmpout1.clone()], vec![out1.clone()], 1)?;
-        }
-
+        debug!("Writing output file...");
+        write_output(&tmpout1, None, &out1, None, compression_threads)?;
         
         // Log output format and file size
         if args.verbose {
             let output_format = out1.extension().unwrap_or_default().to_str().unwrap_or_default();
-            debug!("Writing output file...");
             let out1_size_mb = std::fs::metadata(&out1).unwrap().len() as f64 / 1_048_576.0;
             debug!("Output ({} compression) written to: {} ({:.2} MB)", output_format, out1.display(), out1_size_mb);
         }
