@@ -150,7 +150,7 @@ $ nohuman -d
 
 by default, this will place the database in `$HOME/.nohuman/db`. If you want to download it somewhere else, use the `--db` option.
 
-### Check dependecies are available
+### Check dependencies are available
 
 ```
 $ nohuman -c
@@ -185,7 +185,14 @@ $ nohuman -t 4 --out1 clean_1.fq --out2 clean_2.fq in_1.fq in_2.fq
 ```
 
 > [!TIP]
-> If the input reads are gzip-compressed (file extension ending with '.gz'), then the output will also be compressed by default. Likewise, if the input reads are not compressed, then the output reads will also be uncompressed by default. These behaviours can be overruled by explicitly specifying output filenames.
+> If the input reads are compressed then the output will also be compressed by default. Likewise, if the input reads are not compressed, then the output reads will also be uncompressed by default. These behaviours can be overruled by explicitly specifying output filenames.
+
+The detection of compression, and the desire to compress the outputs, is based on the filename extensions. Supported formats:
+* gzip: '.gz'
+* Block GZip Format (BGZF): '.bgz' or '.gz'
+* bzip2: '.bz2'
+* Zstandard: '.zst' or '.zstd'
+* xz / LZMA: '.xz' or '.lzma'
 
 Compressed in, compressed out:
 
@@ -219,6 +226,15 @@ Uncompressed in, compressed out:
 $ nohuman -t 4 -o out_1.fq.gz -O out_2.fq.gz in_1.fq in_2.fq
 ```
 
+Different compression format:
+
+```
+$ nohuman -t 4 -o out_1.fq.zst -O out_2.fq.zst in_1.fq in_2.fq
+```
+
+### Logging
+The direct stderr logging of `kraken2` can be saved to file (plain text) using the `-l` / `--kraken2-log` option of `nohuman`. Overall statistics for the run can be saved to file (JSON format) using the `-s` / `--stats` option of `nohuman`.
+
 ### Short usage
 
 ```
@@ -231,17 +247,19 @@ Arguments:
   [INPUT]...  Input file(s) to remove human reads from.
 
 Options:
-  -o, --out1 <OUTPUT_1>     First output file.
-  -O, --out2 <OUTPUT_2>     Second output file.
-  -c, --check               Check that all required dependencies are available and exit.
-  -d, --download            Download the database required for the process.
-  -D, --db <PATH>           Path to the database. [default: /home/mihall/.nohuman/db]
-  -l, --kraken2-log <PATH>  Write `kraken2` logging information to filename specified here.
-  -t, --threads <INT>       Number of threads to use in kraken2 (and compression, if applicable) [default: 1]
-  -v, --verbose             Set the `nohuman` logging level to verbose
-  -h, --help                Print help (see more with '--help')
-  -V, --version             Print version```
-```
+  -o, --out1 <OUTPUT_1>            First output file.
+  -O, --out2 <OUTPUT_2>            Second output file.
+  -c, --check                      Check that all required dependencies are available and exit.
+  -d, --download                   Download the database required for the process.
+  -D, --db <PATH>                  Path to the database. [default: /Users/charles/.nohuman/db]
+  -l, --kraken2-log <PATH>         Write `kraken2` logging information to filename specified here.
+  -t, --threads <INT>              Number of threads to use in kraken2  [default: 1]
+      --compression-threads <INT>  Number of threads to use for compression.
+      --overwrite                  Allow overwriting of existing output files.
+  -v, --verbose                    Set the `nohuman` logging level to verbose
+  -s, --stats <STATS_FILE>         Generate a stats file (JSON format) with run information
+  -h, --help                       Print help (see more with '--help')
+  -V, --version                    Print version```
 
 ### Full usage
 ```
@@ -262,14 +280,16 @@ Options:
 
           Defaults to the name of the first input file with the suffix "nohuman" appended.
           e.g., "input_1.fastq.gz" -> "input_1.nohuman.fq.gz".
-          If the file stem is `.gz`, the output will be compressed.
+          If the file stem is one of `.gz`, `.bgz`, `.xz`, `.zst`, the output will be
+          compressed accordingly.
 
   -O, --out2 <OUTPUT_2>
           Second output file.
 
           Defaults to the name of the second input file with the suffix "nohuman" appended.
           e.g., "input_2.fastq.gz" -> "input_2.nohuman.fq.gz".
-          If the file stem is `.gz`, the output will be compressed.
+          If the file stem is one of `.gz`, `.bgz`, `.xz`, `.zst`, the output will be
+          compressed accordingly.
 
   -c, --check
           Check that all required dependencies are available and exit.
@@ -290,12 +310,25 @@ Options:
           If not specified, no `kraken2` log is saved.
 
   -t, --threads <INT>
-          Number of threads to use in kraken2 (and compression, if applicable)
+          Number of threads to use in kraken2
 
           [default: 1]
 
+      --compression-threads <INT>
+          Number of threads to use for compression.
+
+          Defaults to the same value as `--threads` if not specified by the user.
+
+      --overwrite
+          Allow overwriting of existing output files.
+
+          If not provided, the process will error out if the output file(s) already exist.
+
   -v, --verbose
           Set the `nohuman` logging level to verbose
+
+  -s, --stats <STATS_FILE>
+          Generate a stats file (JSON format) with run information
 
   -h, --help
           Print help (see a summary with '-h')
