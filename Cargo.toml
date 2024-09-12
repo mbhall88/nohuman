@@ -34,3 +34,5 @@ dirs = "5.0.1"
 futures-util = "0.3.29"
 async-std = { version = "1.12.0", features = ["attributes", "tokio1"] }
 indicatif = "0.17.7"
+bzip2 = "0.4.4"
+zstd = { version = "0.13.2", features = ["zstdmt"] }

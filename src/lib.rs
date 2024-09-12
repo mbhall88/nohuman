@@ -1,3 +1,4 @@
+pub mod compression;
 pub mod download;
 
 use serde::Deserialize;
