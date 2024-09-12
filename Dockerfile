@@ -1,4 +1,4 @@
-FROM rust:1.74 AS builder
+FROM rust:slim AS builder
 
 COPY . /nohuman
 
