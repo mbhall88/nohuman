@@ -96,7 +96,7 @@ $ cargo install nohuman
 
 ### Container
 
-Docker images are hosted on GitHub Container registry.
+Docker images are hosted on the GitHub Container registry.
 
 #### `singularity`
 
@@ -108,16 +108,14 @@ $ singularity exec "$URI" nohuman --help
 ```
 
 The above will use the latest version. If you want to specify a version then use a
-[tag][quay.io] (or commit) like so.
+[tag][ghcr] like so.
 
 ```shell
 $ VERSION="0.1.1"
-$ URI="docker://quay.io/mbhall88/nohuman:${VERSION}"
+$ URI="docker://ghcr.io/mbhall88/nohuman:${VERSION}"
 ```
 
 #### `docker`
-
-[![Docker Repository on Quay](https://quay.io/repository/mbhall88/nohuman/status "Docker Repository on Quay")](https://quay.io/repository/mbhall88/nohuman)
 
 Prerequisite: [`docker`][docker]
 
@@ -126,7 +124,7 @@ $ docker pull ghcr.io/mbhall88/nohuman:latest
 $ docker run ghcr.io/mbhall88/nohuman:latest nohuman --help
 ```
 
-You can find all the available tags [here](https://github.com/mbhall88/nohuman/pkgs/container/nohuman).
+You can find all the available tags [here][ghcr].
 
 ### Build from source
 
@@ -292,3 +290,5 @@ Options:
 [kraken]: https://github.com/DerrickWood/kraken2
 
 [paper]: https://doi.org/10.1093/gigascience/giae010
+
+[ghcr]: https://github.com/mbhall88/nohuman/pkgs/container/nohuman
