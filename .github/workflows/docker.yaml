@@ -44,7 +44,10 @@ jobs:
             type=semver,pattern={{major}}
             type=ref,event=branch
             type=ref,event=pr
-            type=sha
+            # minimal (short sha)
+            type=sha,prefix=
+            # full length sha
+            type=sha,format=long,prefix=
             # set latest tag for default branch
             type=raw,value=latest,enable={{is_default_branch}}
       # This step uses the `docker/build-push-action` action to build the image, based on your repository's `Dockerfile`. If the build succeeds, it pushes the image to GitHub Packages.
