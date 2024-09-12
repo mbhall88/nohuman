@@ -43,6 +43,16 @@ jobs:
       - name: Lint
         run: just lint
 
+      - uses: taiki-e/install-action@just
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@main
+
+      - name: Install cargo-shear
+        run: cargo binstall --no-confirm cargo-shear
+
+      - name: Check for unused dependencies
+        run: cargo shear
+
       - uses: actions/cache@v3
         with:
           path: |
