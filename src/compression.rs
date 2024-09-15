@@ -2,7 +2,7 @@ use anyhow::{bail, Context, Result};
 use bzip2::write::BzEncoder;
 use std::fs::File;
 use std::io;
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
@@ -87,8 +87,10 @@ impl CompressionFormat {
     }
 
     pub fn compress<P: AsRef<Path>>(&self, input: P, output: P, threads: usize) -> Result<()> {
-        let mut input_file = File::open(input)?;
-        let mut output_file = File::create(output).context("Failed to create output file")?;
+        let mut input_file = File::open(input).map(BufReader::new)?;
+        let mut output_file = File::create(output)
+            .context("Failed to create output file")
+            .map(BufWriter::new)?;
 
         let result = match self {
             Self::None => io::copy(&mut input_file, &mut output_file),
@@ -139,6 +141,7 @@ where
 {
     let mut encoder = zstd::stream::write::Encoder::new(output, zstd::DEFAULT_COMPRESSION_LEVEL)?;
     encoder.multithread(threads as u32)?;
+    encoder.include_checksum(true)?;
 
     let bytes = io::copy(input, &mut encoder)?;
     let _ = encoder.finish()?;
@@ -401,11 +404,18 @@ mod tests {
         let mut reader = Cursor::new(data);
         let mut writer = Cursor::new(Vec::new());
         let bytes = zstd_compress(&mut reader, &mut writer, 4).unwrap();
-        let expected = vec![
+        let expected = [
             0x28, 0xb5, 0x2f, 0xfd, 0x24, 0x08, 0x41, 0x00, 0x00, 0x66, 0x6f, 0x6f, 0x20, 0x62,
             0x61, 0x72, 0x0a, 0x37, 0x17, 0xa5, 0xec,
         ];
         assert_eq!(bytes, data.len() as u64);
-        assert_eq!(writer.into_inner(), expected);
+
+        for (i, byte) in writer.into_inner().iter().enumerate() {
+            // bytes 4 and 5 are the frame content size, which is variable
+            if (4..=5).contains(&i) {
+                continue;
+            }
+            assert_eq!(*byte, expected[i]);
+        }
     }
 }
