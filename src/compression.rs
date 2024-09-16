@@ -6,6 +6,8 @@ use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
+const XZ_DEFAULT_LEVEL: u32 = 6;
+
 #[derive(Debug, PartialEq, Copy, Clone, Default)]
 pub enum CompressionFormat {
     Bzip2,
@@ -19,6 +21,29 @@ pub enum CompressionFormat {
 impl FromStr for CompressionFormat {
     type Err = anyhow::Error;
 
+    /// Parse a string into a `CompressionFormat`. `s` is case-insensitive.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::str::FromStr;
+    /// use nohuman::compression::CompressionFormat;
+    ///
+    /// let format = "b".parse::<CompressionFormat>().unwrap();
+    /// assert_eq!(format, CompressionFormat::Bzip2);
+    /// let format = "g".parse::<CompressionFormat>().unwrap();
+    /// assert_eq!(format, CompressionFormat::Gzip);
+    /// let format = "x".parse::<CompressionFormat>().unwrap();
+    /// assert_eq!(format, CompressionFormat::Xz);
+    /// let format = "z".parse::<CompressionFormat>().unwrap();
+    /// assert_eq!(format, CompressionFormat::Zstd);
+    /// let format = "u".parse::<CompressionFormat>().unwrap();
+    /// assert_eq!(format, CompressionFormat::None);
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the string is not a valid compression format.
     fn from_str(s: &str) -> Result<Self> {
         match s.to_lowercase().as_str() {
             "b" => Ok(CompressionFormat::Bzip2),
@@ -32,6 +57,24 @@ impl FromStr for CompressionFormat {
 }
 
 impl std::fmt::Display for CompressionFormat {
+    /// Display the compression format as a string. This string is the one used as the file extension.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nohuman::compression::CompressionFormat;
+    ///
+    /// let format = CompressionFormat::Bzip2;
+    /// assert_eq!(format.to_string(), "bz2");
+    /// let format = CompressionFormat::Gzip;
+    /// assert_eq!(format.to_string(), "gz");
+    /// let format = CompressionFormat::None;
+    /// assert_eq!(format.to_string(), "");
+    /// let format = CompressionFormat::Xz;
+    /// assert_eq!(format.to_string(), "xz");
+    /// let format = CompressionFormat::Zstd;
+    /// assert_eq!(format.to_string(), "zst");
+    /// ```
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let format = match self {
             CompressionFormat::Bzip2 => "bz2",
@@ -50,6 +93,17 @@ impl CompressionFormat {
     }
 
     /// Detect the compression format of a file based on its path extension.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nohuman::compression::CompressionFormat;
+    ///
+    /// let format = CompressionFormat::from_path("file.txt").unwrap();
+    /// assert_eq!(format, CompressionFormat::None);
+    /// let format = CompressionFormat::from_path("file.txt.gz").unwrap();
+    /// assert_eq!(format, CompressionFormat::Gzip);
+    /// ```
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
         let extension = path.extension().and_then(|s| s.to_str());
@@ -63,10 +117,35 @@ impl CompressionFormat {
         }
     }
 
+    /// Check if the compression format is compressed.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nohuman::compression::CompressionFormat;
+    ///
+    /// let format = CompressionFormat::Bzip2;
+    /// assert!(format.is_compressed());
+    /// let format = CompressionFormat::None;
+    /// assert!(!format.is_compressed());
+    /// ```
     pub fn is_compressed(&self) -> bool {
         *self != CompressionFormat::None
     }
 
+    /// Add the compression extension to a path.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::path::PathBuf;
+    /// use nohuman::compression::CompressionFormat;
+    ///
+    /// let format = CompressionFormat::Bzip2;
+    /// let path = PathBuf::from("file.txt");
+    /// let new_path = format.add_extension(path);
+    /// assert_eq!(new_path, PathBuf::from("file.txt.bz2"));
+    /// ```
     pub fn add_extension<P: AsRef<Path>>(&self, path: P) -> PathBuf {
         let mut path_buf = path.as_ref().to_path_buf();
 
@@ -126,12 +205,24 @@ where
     unimplemented!()
 }
 
-fn xz_compress<R, W>(_input: &mut R, _output: &mut W, _threads: usize) -> io::Result<u64>
+fn xz_compress<R, W>(input: &mut R, output: &mut W, threads: usize) -> io::Result<u64>
 where
     R: Read,
     W: Write,
 {
-    unimplemented!()
+    use liblzma::stream::{Check, MtStreamBuilder};
+    use liblzma::write::XzEncoder;
+
+    let stream = MtStreamBuilder::new()
+        .threads(threads as u32)
+        .preset(XZ_DEFAULT_LEVEL)
+        .check(Check::Crc64)
+        .encoder()?;
+    let mut encoder = XzEncoder::new_stream(output, stream);
+
+    let bytes = io::copy(input, &mut encoder)?;
+    encoder.try_finish()?;
+    Ok(bytes)
 }
 
 fn zstd_compress<R, W>(input: &mut R, output: &mut W, threads: usize) -> io::Result<u64>
@@ -144,7 +235,7 @@ where
     encoder.include_checksum(true)?;
 
     let bytes = io::copy(input, &mut encoder)?;
-    let _ = encoder.finish()?;
+    encoder.finish()?;
     Ok(bytes)
 }
 
@@ -417,5 +508,23 @@ mod tests {
             }
             assert_eq!(*byte, expected[i]);
         }
+    }
+
+    #[test]
+    fn test_xz_compress() {
+        let data = b"foo bar\n";
+        let mut reader = Cursor::new(data);
+        let mut writer = Cursor::new(Vec::new());
+        let bytes = xz_compress(&mut reader, &mut writer, 4).unwrap();
+        let expected = [
+            0xfd, 0x37, 0x7a, 0x58, 0x5a, 0x00, 0x00, 0x04, 0xe6, 0xd6, 0xb4, 0x46, 0x04, 0xc0,
+            0x0c, 0x08, 0x21, 0x01, 0x16, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0xac, 0x77, 0xaa, 0xa4, 0x01, 0x00, 0x07, 0x66, 0x6f, 0x6f, 0x20, 0x62, 0x61, 0x72,
+            0x0a, 0x00, 0xfd, 0xbb, 0xfb, 0x3b, 0x8e, 0xcc, 0x32, 0x13, 0x00, 0x01, 0x28, 0x08,
+            0xb3, 0x93, 0x00, 0x73, 0x1f, 0xb6, 0xf3, 0x7d, 0x01, 0x00, 0x00, 0x00, 0x00, 0x04,
+            0x59, 0x5a,
+        ];
+        assert_eq!(bytes, data.len() as u64);
+        assert_eq!(writer.into_inner(), expected);
     }
 }
