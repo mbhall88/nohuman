@@ -1,3 +1,4 @@
+use std::num::NonZeroU32;
 use std::path::PathBuf;
 
 use anyhow::{bail, Context, Result};
@@ -60,9 +61,9 @@ struct Args {
     #[clap(short = 'F', long, value_name = "FORMAT")]
     pub output_type: Option<CompressionFormat>,
 
-    /// Number of threads to use in kraken2
+    /// Number of threads to use in kraken2 and optional output compression. Must >0.
     #[arg(short, long, value_name = "INT", default_value = "1")]
-    threads: usize,
+    threads: NonZeroU32,
 
     /// Set the logging level to verbose
     #[arg(short, long)]
@@ -252,9 +253,9 @@ fn main() -> Result<()> {
     // if we have one output file and multiple threads, we pass all threads to the compression command
     // if we have two output files, we pass half the threads to each compression command
     let threads = if outputs.len() == 1 {
-        args.threads
+        args.threads.get()
     } else {
-        args.threads / 2
+        args.threads.get() / 2
     };
 
     // if we have two output files and two or more threads, compress them in parallel
