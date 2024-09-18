@@ -165,7 +165,21 @@ impl CompressionFormat {
         path_buf
     }
 
-    pub fn compress<P: AsRef<Path>>(&self, input: P, output: P, threads: usize) -> Result<()> {
+    /// Compress a file using the compression format of `self` and number of threads.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use nohuman::compression::CompressionFormat;
+    /// use std::path::Path;
+    ///
+    /// let format = CompressionFormat::Gzip;
+    /// let input = Path::new("foo.txt");
+    /// let output = Path::new("foo.txt.gz");
+    /// let threads = 4;
+    /// format.compress(input, output, threads).unwrap();
+    /// ```
+    pub fn compress<P: AsRef<Path>>(&self, input: P, output: P, threads: u32) -> Result<()> {
         let mut input_file = File::open(input).map(BufReader::new)?;
         let mut output_file = File::create(output)
             .context("Failed to create output file")
@@ -174,7 +188,7 @@ impl CompressionFormat {
         let result = match self {
             Self::None => io::copy(&mut input_file, &mut output_file),
             Self::Bzip2 => bzip2_compress(&mut input_file, &mut output_file),
-            Self::Gzip => gzip_compress(&mut input_file, &mut output_file, threads),
+            Self::Gzip => gzip_compress(&mut input_file, output_file, threads),
             Self::Xz => xz_compress(&mut input_file, &mut output_file, threads),
             Self::Zstd => zstd_compress(&mut input_file, &mut output_file, threads),
         };
@@ -197,15 +211,31 @@ where
     Ok(bytes)
 }
 
-fn gzip_compress<R, W>(_input: &mut R, _output: &mut W, _threads: usize) -> io::Result<u64>
+fn gzip_compress<R, W>(input: &mut R, output: W, threads: u32) -> io::Result<u64>
 where
     R: Read,
-    W: Write,
+    W: Write + Send + 'static,
 {
-    unimplemented!()
+    use gzp::deflate::Gzip;
+    use gzp::Compression;
+    use gzp::ZBuilder;
+
+    let threads = std::cmp::max(threads, 1) as usize;
+
+    // unwrap is safe because we know threads is not zero and this is the only circumstance under which the builder will Error
+    let mut encoder = ZBuilder::<Gzip, _>::new()
+        .num_threads(threads)
+        .compression_level(Compression::default())
+        .from_writer(output);
+    let bytes = io::copy(input, &mut encoder)?;
+    encoder
+        .finish()
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+
+    Ok(bytes)
 }
 
-fn xz_compress<R, W>(input: &mut R, output: &mut W, threads: usize) -> io::Result<u64>
+fn xz_compress<R, W>(input: &mut R, output: &mut W, threads: u32) -> io::Result<u64>
 where
     R: Read,
     W: Write,
@@ -214,7 +244,7 @@ where
     use liblzma::write::XzEncoder;
 
     let stream = MtStreamBuilder::new()
-        .threads(threads as u32)
+        .threads(threads)
         .preset(XZ_DEFAULT_LEVEL)
         .check(Check::Crc64)
         .encoder()?;
@@ -225,13 +255,13 @@ where
     Ok(bytes)
 }
 
-fn zstd_compress<R, W>(input: &mut R, output: &mut W, threads: usize) -> io::Result<u64>
+fn zstd_compress<R, W>(input: &mut R, output: &mut W, threads: u32) -> io::Result<u64>
 where
     R: Read,
     W: Write,
 {
     let mut encoder = zstd::stream::write::Encoder::new(output, zstd::DEFAULT_COMPRESSION_LEVEL)?;
-    encoder.multithread(threads as u32)?;
+    encoder.multithread(threads)?;
     encoder.include_checksum(true)?;
 
     let bytes = io::copy(input, &mut encoder)?;
@@ -526,5 +556,34 @@ mod tests {
         ];
         assert_eq!(bytes, data.len() as u64);
         assert_eq!(writer.into_inner(), expected);
+    }
+
+    #[test]
+    fn test_gzip_compress() {
+        let data = b"foo bar\n";
+        let mut reader = Cursor::new(data);
+        // create a temporary output file that won't be deleted when it is dropped
+        let tempdir = tempfile::tempdir().unwrap();
+        let temppath = tempdir.path().join("output.gz");
+        let writer = File::create(&temppath).map(BufWriter::new).unwrap();
+        let bytes = gzip_compress(&mut reader, writer, 4).unwrap();
+        let expected = [
+            0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x4b, 0xcb, 0xcf, 0x57,
+            0x48, 0x4a, 0x2c, 0xe2, 0x02, 0x00, 0x27, 0xb4, 0xdd, 0x13, 0x08, 0x00, 0x00, 0x00,
+        ];
+
+        let mut reader = BufReader::new(File::open(&temppath).unwrap());
+        let mut buffer = Vec::new();
+        reader.read_to_end(&mut buffer).unwrap();
+
+        assert_eq!(bytes, data.len() as u64);
+
+        for (i, byte) in buffer.iter().enumerate() {
+            // byte 9 is the modification time, which is variable
+            if i == 9 {
+                continue;
+            }
+            assert_eq!(*byte, expected[i]);
+        }
     }
 }
