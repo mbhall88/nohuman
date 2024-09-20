@@ -262,18 +262,21 @@ fn main() -> Result<()> {
     if outputs.len() == 2 && threads > 1 {
         let mut handles = Vec::new();
         for (input, output) in outputs {
-            let handle =
-                std::thread::spawn(move || output_compression.compress(&input, &output, threads));
+            let handle = std::thread::spawn(move || {
+                info!("Writing output file to: {:?}", &output);
+                output_compression.compress(&input, &output, threads)
+            });
             handles.push(handle);
         }
         for handle in handles {
             handle
                 .join()
-                .map_err(|e| anyhow::anyhow!("Thread panicked: {:?}", e))??;
+                .map_err(|e| anyhow::anyhow!("Thread panicked when writing output: {:?}", e))??;
         }
     } else {
         for (input, output) in outputs {
             output_compression.compress(&input, &output, threads)?;
+            info!("Output file written to: {:?}", &output);
         }
     }
 
