@@ -26,20 +26,26 @@ lazy_static! {
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// Input file(s) to remove human reads from
-    #[arg(name = "INPUT", required_unless_present_any = &["check", "download"], value_parser = check_path_exists)]
+    #[arg(name = "INPUT", required_unless_present_any = &["check", "download"], value_parser = check_path_exists, verbatim_doc_comment)]
     input: Option<Vec<PathBuf>>,
 
     /// First output file.
     ///
-    /// Defaults to the name of the first input file with the suffix "nohuman" appended. e.g. "input_1.fastq.gz" -> "input_1.nohuman.fq".
-    /// NOTE: kraken2 output cannot be compressed, so the output will always be uncompressed.
-    #[arg(short, long, name = "OUTPUT_1")]
+    /// Defaults to the name of the first input file with the suffix "nohuman" appended.
+    /// e.g. "input_1.fastq" -> "input_1.nohuman.fq".
+    /// Compression of the output file is determined by the file extension of the output file name.
+    /// Or by using the `--output-type` option. If no output path is given, the same compression
+    /// as the input file will be used.
+    #[arg(short, long, name = "OUTPUT_1", verbatim_doc_comment)]
     pub out1: Option<PathBuf>,
     /// Second output file - if two input files given.
     ///
-    /// Defaults to the name of the first input file with the suffix "nohuman" appended. e.g. "input_2.fastq.gz" -> "input_2.nohuman.fq".
-    /// NOTE: kraken2 output cannot be compressed, so the output will always be uncompressed.
-    #[arg(short = 'O', long, name = "OUTPUT_2")]
+    /// Defaults to the name of the first input file with the suffix "nohuman" appended.
+    /// e.g. "input_2.fastq" -> "input_2.nohuman.fq".
+    /// Compression of the output file is determined by the file extension of the output file name.
+    /// Or by using the `--output-type` option. If no output path is given, the same compression
+    /// as the input file will be used.
+    #[arg(short = 'O', long, name = "OUTPUT_2", verbatim_doc_comment)]
     pub out2: Option<PathBuf>,
 
     /// Check that all required dependencies are available
@@ -58,10 +64,10 @@ struct Args {
     ///
     /// If not provided, the format will be inferred from the given output file name(s), or the
     /// format of the input file(s) if no output file name(s) are given.
-    #[clap(short = 'F', long, value_name = "FORMAT")]
+    #[clap(short = 'F', long, value_name = "FORMAT", verbatim_doc_comment)]
     pub output_type: Option<CompressionFormat>,
 
-    /// Number of threads to use in kraken2 and optional output compression. Must >0.
+    /// Number of threads to use in kraken2 and optional output compression. Cannot be 0.
     #[arg(short, long, value_name = "INT", default_value = "1")]
     threads: NonZeroU32,
 
