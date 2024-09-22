@@ -1,9 +1,11 @@
 pub mod compression;
 pub mod download;
 
+use log::{debug, info};
 use serde::Deserialize;
 use std::ffi::OsStr;
-use std::io::{self, Write};
+use std::io::{self};
+use std::num::ParseIntError;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -36,10 +38,26 @@ impl CommandRunner {
     pub fn run(&self, args: &[&str]) -> io::Result<()> {
         let output = Command::new(&self.command).args(args).output()?;
 
+        let stderr_log = String::from_utf8_lossy(&output.stderr);
         if !output.status.success() {
-            let error_message = String::from_utf8_lossy(&output.stderr);
-            writeln!(io::stderr(), "{}", error_message)?;
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!("{} failed with stderr {}", self.command, stderr_log),
+            ));
         }
+
+        debug!("kraken2 stderr:\n {}", stderr_log);
+
+        let (total, classified, unclassified) =
+            parse_kraken_stderr(&stderr_log).unwrap_or((0, 0, 0));
+
+        info!(
+            "{} / {} ({}%) sequences classified as human; keeping {} non-human sequences...",
+            classified,
+            total,
+            (classified as f64 / total as f64 * 100.0),
+            unclassified
+        );
 
         Ok(())
     }
@@ -52,6 +70,45 @@ impl CommandRunner {
             Err(_) => false,
         }
     }
+}
+
+/// Parses the kraken2 stderr to get thenumber of total, classified and unclassifed reads.
+fn parse_kraken_stderr(stderr: &str) -> Result<(usize, usize, usize), ParseIntError> {
+    let mut total_sequences: usize = 0;
+    let mut classified_sequences: usize = 0;
+    let mut unclassified_sequences: usize = 0;
+
+    // Parse Kraken2 stderr output line by line
+    for line in stderr.lines() {
+        if line.contains("processed") {
+            total_sequences = line
+                .split_whitespace()
+                .next()
+                .unwrap_or("0")
+                .replace(",", "") // Handle commas in large numbers
+                .parse::<usize>()?;
+        } else if line.contains("sequences classified") {
+            classified_sequences = line
+                .split_whitespace()
+                .next()
+                .unwrap_or("0")
+                .replace(",", "") // Handle commas in large numbers
+                .parse::<usize>()?;
+        } else if line.contains("sequences unclassified") {
+            unclassified_sequences = line
+                .split_whitespace()
+                .next()
+                .unwrap_or("0")
+                .replace(",", "") // Handle commas in large numbers
+                .parse::<usize>()?;
+        }
+    }
+
+    Ok((
+        total_sequences,
+        classified_sequences,
+        unclassified_sequences,
+    ))
 }
 
 /// A utility function that allows the CLI to error if a path doesn't exist

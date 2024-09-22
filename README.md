@@ -198,7 +198,7 @@ Arguments:
 
 Options:
   -o, --out1 <OUTPUT_1>       First output file
-  -O, --out2 <OUTPUT_2>       Second output file - if two input files given
+  -O, --out2 <OUTPUT_2>       Second output file
   -c, --check                 Check that all required dependencies are available
   -d, --download              Download the database
   -D, --db <PATH>             Path to the database [default: ~/.nohuman/db]
@@ -232,7 +232,7 @@ Options:
           as the input file will be used.
  
   -O, --out2 <OUTPUT_2>
-          Second output file - if two input files given.
+          Second output file.
 
           Defaults to the name of the first input file with the suffix "nohuman" appended.
           e.g. "input_2.fastq" -> "input_2.nohuman.fq".
@@ -241,7 +241,7 @@ Options:
           as the input file will be used.
 
   -c, --check
-          Check that all required dependencies are available
+          Check that all required dependencies are available and exit.
 
   -d, --download
           Download the database
