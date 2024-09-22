@@ -182,13 +182,11 @@ or to specify a different path for the output
 $ nohuman -t 4 --out1 clean_1.fq --out2 clean_2.fq in_1.fq in_2.fq
 ```
 
-Compressed output will be inferred from the specified output path(s). If no output path is provided, the same
-compression
-as the input will be used. To override the output compression format, use the `--output-type` option. Supported
-compression
-formats are gzip (`.gz`), zstandard (`zst`), bzip2 (`.bz2`), and xz (`.xz`). If multiple threads are provided, these
-will
-be used for compression of the output (where possible).
+> [!TIP]
+> Compressed output will be inferred from the specified output path(s). If no output path is provided, the same
+> compression as the input will be used. To override the output compression format, use the `--output-type` option. 
+> Supported compression formats are gzip (`.gz`), zstandard (`zst`), bzip2 (`.bz2`), and xz (`.xz`). If multiple threads are provided, these
+> will be used for compression of the output (where possible).
 
 ### Keep human reads
 
