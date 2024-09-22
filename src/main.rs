@@ -38,7 +38,7 @@ struct Args {
     /// as the input file will be used.
     #[arg(short, long, name = "OUTPUT_1", verbatim_doc_comment)]
     pub out1: Option<PathBuf>,
-    /// Second output file - if two input files given.
+    /// Second output file.
     ///
     /// Defaults to the name of the first input file with the suffix "nohuman" appended.
     /// e.g. "input_2.fastq" -> "input_2.nohuman.fq".
@@ -48,7 +48,7 @@ struct Args {
     #[arg(short = 'O', long, name = "OUTPUT_2", verbatim_doc_comment)]
     pub out2: Option<PathBuf>,
 
-    /// Check that all required dependencies are available
+    /// Check that all required dependencies are available and exit.
     #[arg(short, long)]
     check: bool,
 
