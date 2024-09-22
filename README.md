@@ -6,27 +6,30 @@
 [![github release version](https://img.shields.io/github/v/release/mbhall88/nohuman)](https://github.com/mbhall88/nohuman/releases)
 [![DOI:10.1093/gigascience/giae010](https://img.shields.io/badge/citation-10.1093/gigascience/giae010-blue)][paper]
 
+👤🧬🚫 **Remove human reads from a sequencing run** 👤🧬️🚫
 
-👤➡️🚫 **Remove human reads from a sequencing run** 👤➡️🚫
-
-`nohuman` removes human reads from sequencing reads by classifying them with [kraken2][kraken] against a custom database built from all of the genomes in the Human Pangenome Reference Consortium's (HPRC) [first draft human pangenome reference](https://doi.org/10.1038/s41586-023-05896-x). It can take any type of sequencing technology. Read more about the development of this method [here][paper].
+`nohuman` removes human reads from sequencing reads by classifying them with [kraken2][kraken] against a custom database
+built from all of the genomes in the Human Pangenome Reference Consortium's (
+HPRC) [first draft human pangenome reference](https://doi.org/10.1038/s41586-023-05896-x). It can take any type of
+sequencing technology. Read more about the development of this method [here][paper].
 
 - [NoHuman](#nohuman)
-  - [Install](#install)
-    - [Conda (recommended)](#conda-recommended)
-    - [Precompiled binary](#precompiled-binary)
-    - [Cargo](#cargo)
-    - [Container](#container)
-      - [`singularity`](#singularity)
-      - [`docker`](#docker)
-    - [Build from source](#build-from-source)
-  - [Usage](#usage)
-    - [Download the database](#download-the-database)
-    - [Check dependecies are available](#check-dependecies-are-available)
-    - [Remove human reads](#remove-human-reads)
-    - [Full usage](#full-usage)
-  - [Alternates](#alternates)
-  - [Cite](#cite)
+    - [Install](#install)
+        - [Conda (recommended)](#conda-recommended)
+        - [Precompiled binary](#precompiled-binary)
+        - [Cargo](#cargo)
+        - [Container](#container)
+            - [`singularity`](#singularity)
+            - [`docker`](#docker)
+        - [Build from source](#build-from-source)
+    - [Usage](#usage)
+        - [Download the database](#download-the-database)
+        - [Check dependecies are available](#check-dependecies-are-available)
+        - [Remove human reads](#remove-human-reads)
+        - [Keep human reads](#keep-human-reads)
+        - [Full usage](#full-usage)
+    - [Alternates](#alternates)
+    - [Cite](#cite)
 
 ## Install
 
@@ -39,7 +42,6 @@
 ```shell
 $ conda install -c bioconda nohuman
 ```
-
 
 ### Precompiled binary
 
@@ -82,7 +84,6 @@ Options
         -h, --help
                 Display this help message
 ```
-
 
 ### Cargo
 
@@ -137,7 +138,6 @@ $ cargo build --release
 $ target/release/nohuman -h
 ```
 
-
 ## Usage
 
 ### Download the database
@@ -146,7 +146,8 @@ $ target/release/nohuman -h
 $ nohuman -d
 ```
 
-by default, this will place the database in `$HOME/.nohuman/db`. If you want to download it somewhere else, use the `--db` option.
+by default, this will place the database in `$HOME/.nohuman/db`. If you want to download it somewhere else, use
+the `--db` option.
 
 ### Check dependencies are available
 
@@ -177,15 +178,21 @@ $ nohuman -t 4 in_1.fq in_2.fq
 
 or to specify a different path for the output
 
-
 ```
 $ nohuman -t 4 --out1 clean_1.fq --out2 clean_2.fq in_1.fq in_2.fq
 ```
 
-Compressed output will be inferred from the specified output path(s). If no output path is provided, the same compression 
-as the input will be used. To override the output compression format, use the `--output-type` option. Supported compression 
-formats are gzip (`.gz`), zstandard (`zst`), bzip2 (`.bz2`), and xz (`.xz`). If multiple threads are provided, these will 
+Compressed output will be inferred from the specified output path(s). If no output path is provided, the same
+compression
+as the input will be used. To override the output compression format, use the `--output-type` option. Supported
+compression
+formats are gzip (`.gz`), zstandard (`zst`), bzip2 (`.bz2`), and xz (`.xz`). If multiple threads are provided, these
+will
 be used for compression of the output (where possible).
+
+### Keep human reads
+
+You can invert the functionality of `nohuman` to keep only the human reads by using the `--human/-H` flag.
 
 ```
 $ nohuman -h
@@ -197,13 +204,14 @@ Arguments:
   [INPUT]...  Input file(s) to remove human reads from
 
 Options:
-  -o, --out1 <OUTPUT_1>       First output file
-  -O, --out2 <OUTPUT_2>       Second output file
-  -c, --check                 Check that all required dependencies are available
+  -o, --out1 <OUTPUT_1>       First output file.
+  -O, --out2 <OUTPUT_2>       Second output file.
+  -c, --check                 Check that all required dependencies are available and exit
   -d, --download              Download the database
-  -D, --db <PATH>             Path to the database [default: ~/.nohuman/db]
+  -D, --db <PATH>             Path to the database [default: /home/michael/.nohuman/db]
   -F, --output-type <FORMAT>  Output compression format. u: uncompressed; b: Bzip2; g: Gzip; x: Xz (Lzma); z: Zstd
   -t, --threads <INT>         Number of threads to use in kraken2 and optional output compression. Cannot be 0 [default: 1]
+  -H, --human                 Output human reads instead of removing them
   -v, --verbose               Set the logging level to verbose
   -h, --help                  Print help (see more with '--help')
   -V, --version               Print version
@@ -230,7 +238,7 @@ Options:
           Compression of the output file is determined by the file extension of the output file name.
           Or by using the `--output-type` option. If no output path is given, the same compression
           as the input file will be used.
- 
+
   -O, --out2 <OUTPUT_2>
           Second output file.
 
@@ -241,7 +249,7 @@ Options:
           as the input file will be used.
 
   -c, --check
-          Check that all required dependencies are available and exit.
+          Check that all required dependencies are available and exit
 
   -d, --download
           Download the database
@@ -262,6 +270,9 @@ Options:
 
           [default: 1]
 
+  -H, --human
+          Output human reads instead of removing them
+
   -v, --verbose
           Set the logging level to verbose
 
@@ -274,13 +285,16 @@ Options:
 
 ## Alternates
 
-[Hostile](https://github.com/bede/hostile) is an alignment-based approach that performs well. It take longer and uses more memory than the `nohuman` kraken approach, but has slightly better accuracy for Illumina data. See the [paper] for more details and for other alternate approaches.
+[Hostile](https://github.com/bede/hostile) is an alignment-based approach that performs well. It take longer and uses
+more memory than the `nohuman` kraken approach, but has slightly better accuracy for Illumina data. See the [paper] for
+more details and for other alternate approaches.
 
 ## Cite
 
 [![DOI:10.1093/gigascience/giae010](https://img.shields.io/badge/citation-10.1093/gigascience/giae010-blue)][paper]
 
-> Hall, Michael B., and Lachlan J. M. Coin. “Pangenome databases improve host removal and mycobacteria classification from clinical metagenomic data” GigaScience, April 4, 2024. <https://doi.org/10.1093/gigascience/giae010>
+> Hall, Michael B., and Lachlan J. M. Coin. “Pangenome databases improve host removal and mycobacteria classification
+> from clinical metagenomic data” GigaScience, April 4, 2024. <https://doi.org/10.1093/gigascience/giae010>
 
 ```bibtex
 @article{hall_pangenome_2024,

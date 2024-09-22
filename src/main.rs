@@ -68,6 +68,10 @@ struct Args {
     #[arg(short, long, value_name = "INT", default_value = "1")]
     threads: NonZeroU32,
 
+    /// Output human reads instead of removing them
+    #[arg(short = 'H', long = "human")]
+    keep_human_reads: bool,
+
     /// Set the logging level to verbose
     #[arg(short, long)]
     verbose: bool,
@@ -178,10 +182,17 @@ fn main() -> Result<()> {
         tmpdir.path().join("kraken_out.fq")
     };
     let outfile = outfile.to_string_lossy().to_string();
-    kraken_cmd.extend(&["--unclassified-out", &outfile]);
+
+    if args.keep_human_reads {
+        kraken_cmd.extend(&["--classified-out", &outfile]);
+        info!("Keeping human reads...");
+    } else {
+        kraken_cmd.extend(&["--unclassified-out", &outfile]);
+        info!("Removing human reads...");
+    }
 
     kraken_cmd.extend(input.iter().map(|p| p.to_str().unwrap()));
-    info!("Running kraken2...");
+    debug!("Running kraken2...");
     debug!("With arguments: {:?}", &kraken_cmd);
     kraken.run(&kraken_cmd).context("Failed to run kraken2")?;
     info!("Kraken2 finished. Organising output...");
