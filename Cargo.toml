@@ -8,7 +8,7 @@ repository = "https://github.com/mbhall88/nohuman"
 homepage = "https://github.com/mbhall88/nohuman"
 readme = "README.md"
 license-file = "LICENSE"
-rust-version = "1.70.0"
+rust-version = "1.80.0"
 keywords = ["bioinformatics", "contamination", "metagenomics"]
 categories = ["science", "command-line-utilities"]
 
@@ -29,7 +29,6 @@ tempfile = "3.8.1"
 toml = "0.8.8"
 serde = { version = "1.0.193", features = ["derive"] }
 md5 = "0.7.0"
-lazy_static = "1.4.0"
 dirs = "5.0.1"
 futures-util = "0.3.29"
 async-std = { version = "1.12.0", features = ["attributes", "tokio1"] }

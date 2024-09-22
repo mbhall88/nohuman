@@ -1194,7 +1194,6 @@ dependencies = [
  "futures-util",
  "gzp",
  "indicatif",
- "lazy_static",
  "liblzma",
  "log",
  "md5",
