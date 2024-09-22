@@ -1,26 +1,23 @@
 use std::num::NonZeroU32;
 use std::path::PathBuf;
+use std::sync::LazyLock;
 
 use anyhow::{bail, Context, Result};
 use clap::Parser;
 use env_logger::Builder;
-use lazy_static::lazy_static;
 use log::{debug, error, info, warn, LevelFilter};
 use nohuman::compression::CompressionFormat;
 use nohuman::{
     check_path_exists, download::download_database, validate_db_directory, CommandRunner,
 };
 
-lazy_static! {
-    static ref DEFAULT_DB_LOCATION: String = {
-        let home = dirs::home_dir().expect("Could not find home directory");
-        home.join(".nohuman")
-            .join("db")
-            .to_str()
-            .unwrap()
-            .to_string()
-    };
-}
+static DEFAULT_DB_LOCATION: LazyLock<String> = LazyLock::new(|| {
+    let home = dirs::home_dir().unwrap_or_default();
+    home.join(".nohuman")
+        .join("db")
+        .to_string_lossy()
+        .to_string()
+});
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
