@@ -52,11 +52,12 @@ impl CommandRunner {
             parse_kraken_stderr(&stderr_log).unwrap_or((0, 0, 0));
 
         info!(
-            "{} / {} ({}%) sequences classified as human; keeping {} non-human sequences...",
+            "{} / {} ({:.2}%) sequences classified as human; {} ({:.2}%) as non-human",
             classified,
             total,
-            (classified as f64 / total as f64 * 100.0),
-            unclassified
+            (classified as f64 / total as f64) * 100.0,
+            unclassified,
+            (unclassified as f64 / total as f64) * 100.0
         );
 
         Ok(())
