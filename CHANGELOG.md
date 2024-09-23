@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/mbhall88/nohuman/compare/0.2.0...0.2.1) (2024-09-23)
+
+
+### Bug Fixes
+
+* **deps:** remove openssl dep and downgrade lzma ([1f2da59](https://github.com/mbhall88/nohuman/commit/1f2da592f7423da966fbfa6954e06b5a41c8eb01))
+
 ## [0.2.0](https://github.com/mbhall88/nohuman/compare/0.1.1...0.2.0) (2024-09-23)
 
 
