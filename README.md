@@ -24,7 +24,7 @@ sequencing technology. Read more about the development of this method [here][pap
         - [Build from source](#build-from-source)
     - [Usage](#usage)
         - [Download the database](#download-the-database)
-        - [Check dependecies are available](#check-dependecies-are-available)
+        - [Check dependencies are available](#check-dependencies-are-available)
         - [Remove human reads](#remove-human-reads)
         - [Keep human reads](#keep-human-reads)
         - [Full usage](#full-usage)
@@ -218,7 +218,7 @@ Options:
 ### Full usage
 
 ```
-$nohuman --help
+$ nohuman --help
 Remove human reads from a sequencing run
 
 Usage: nohuman [OPTIONS] [INPUT]...
@@ -255,7 +255,7 @@ Options:
   -D, --db <PATH>
           Path to the database
 
-          [default: /home/michael/.nohuman/db]
+          [default: ~/.nohuman/db]
 
   -F, --output-type <FORMAT>
           Output compression format. u: uncompressed; b: Bzip2; g: Gzip; x: Xz (Lzma); z: Zstd
