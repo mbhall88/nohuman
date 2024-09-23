@@ -68,17 +68,3 @@ jobs:
         env:
           RUST_BACKTRACE: "full"
         run: just test
-
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-tarpaulin
-
-      - name: Run cargo-tarpaulin
-        run: just coverage
-
-      - name: Upload to codecov.io
-        uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
-          verbose: true
