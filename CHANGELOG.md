@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.0](https://github.com/mbhall88/nohuman/compare/0.1.1...0.2.0) (2024-09-23)
+
+
+### Features
+
+* add bzip2 compression ([05e8b91](https://github.com/mbhall88/nohuman/commit/05e8b9134a4316a9660cdf64c5783a0029616e90))
+* add flag to keep human reads instead ([50a5ccb](https://github.com/mbhall88/nohuman/commit/50a5ccb7f93ca299a49aa8e9f7e2bf3e6f4de76b))
+* add gzip compression of output ([79bbbf4](https://github.com/mbhall88/nohuman/commit/79bbbf4e299213e29379c8465e560bb81e0f73e6))
+* add kraken2 stats to log ([c8fe418](https://github.com/mbhall88/nohuman/commit/c8fe418d46ced5c3c1f4343dc96d6548c73125fe))
+* add xz compression of output ([00d5ffa](https://github.com/mbhall88/nohuman/commit/00d5ffa3d7aed92a387c6c71a610bcbc6849b6db))
+* add zstd compression of output ([5de5332](https://github.com/mbhall88/nohuman/commit/5de53325c52b32663d9f0c5c13e15844076502a7))
+
 ## [0.1.1](https://github.com/mbhall88/nohuman/compare/0.1.0...0.1.1) (2024-07-22)
 
 
