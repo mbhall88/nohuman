@@ -45,7 +45,10 @@ $ conda install -c bioconda nohuman
 
 ### Precompiled binary
 
-Note: you will need to [install kraken2][kraken] yourself using this install method.
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/mbhall88/nohuman/total)
+
+> [!IMPORTANT]
+> You will need to [install kraken2][kraken] yourself using this install method.
 
 ```shell
 curl -sSL nohuman.mbh.sh | sh
@@ -89,7 +92,8 @@ Options
 
 ![Crates.io](https://img.shields.io/crates/d/nohuman)
 
-Note: you will need to [install kraken2][kraken] yourself using this install method.
+> [!IMPORTANT]
+> You will need to [install kraken2][kraken] yourself using this install method.
 
 ```shell
 $ cargo install nohuman
@@ -99,20 +103,20 @@ $ cargo install nohuman
 
 Docker images are hosted on the GitHub Container registry.
 
-#### `singularity`
+#### `apptainer`
 
-Prerequisite: [`singularity`][singularity]
+Prerequisite: [`apptainer`][apptainer] (previously `singularity`)
 
 ```shell
 $ URI="docker://ghcr.io/mbhall88/nohuman:latest"
-$ singularity exec "$URI" nohuman --help
+$ apptainer exec "$URI" nohuman --help
 ```
 
 The above will use the latest version. If you want to specify a version then use a
 [tag][ghcr] like so.
 
 ```shell
-$ VERSION="0.1.1"
+$ VERSION="0.2.1"
 $ URI="docker://ghcr.io/mbhall88/nohuman:${VERSION}"
 ```
 
@@ -129,7 +133,8 @@ You can find all the available tags [here][ghcr].
 
 ### Build from source
 
-Note: you will need to [install kraken2][kraken] yourself using this install method.
+> [!IMPORTANT]
+> You will need to [install kraken2][kraken] yourself using this install method.
 
 ```shell
 $ git clone https://github.com/mbhall88/nohuman.git
@@ -313,7 +318,7 @@ more details and for other alternate approaches.
 
 [quay.io]: https://quay.io/repository/mbhall88/nohuman
 
-[singularity]: https://sylabs.io/guides/3.5/user-guide/quick_start.html#quick-installation-steps
+[apptainer]: https://github.com/apptainer/apptainer
 
 [docker]: https://docs.docker.com/v17.12/install/
 
