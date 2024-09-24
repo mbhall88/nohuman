@@ -19,7 +19,7 @@ sequencing technology. Read more about the development of this method [here][pap
         - [Precompiled binary](#precompiled-binary)
         - [Cargo](#cargo)
         - [Container](#container)
-            - [`singularity`](#singularity)
+            - [`apptainer`](#apptainer)
             - [`docker`](#docker)
         - [Build from source](#build-from-source)
     - [Usage](#usage)
