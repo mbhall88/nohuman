@@ -77,6 +77,10 @@ struct Args {
     #[arg(short = 'C', long = "conf", value_name = "[0, 1]", default_value = "0.0", value_parser = parse_confidence_score)]
     confidence: f32,
 
+    /// Write the Kraken2 read classification output to a file.
+    #[arg(short, long, value_name = "FILE")]
+    kraken_output: Option<PathBuf>,
+
     /// Set the logging level to verbose
     #[arg(short, long)]
     verbose: bool,
@@ -144,8 +148,8 @@ fn main() -> Result<()> {
     // error out if input files are not provided, otherwise unwrap to a variable
     let input = args.input.context("No input files provided")?;
 
-    let temp_kraken_output =
-        tempfile::NamedTempFile::new().context("Failed to create temporary kraken output file")?;
+    let kraken_output = args.kraken_output.unwrap_or(PathBuf::from("/dev/null"));
+    let kraken_output = kraken_output.to_string_lossy();
     let threads = args.threads.to_string();
     let confidence = args.confidence.to_string();
     let db = validate_db_directory(&args.database)
@@ -158,7 +162,7 @@ fn main() -> Result<()> {
         "--db",
         &db,
         "--output",
-        temp_kraken_output.path().to_str().unwrap(),
+        &kraken_output,
         "--confidence",
         &confidence,
     ];

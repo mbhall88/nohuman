@@ -193,6 +193,14 @@ Set a [minimum confidence score][conf] for kraken2 classifications
 $ nohuman --conf 0.5 in.fq
 ```
 
+or write the kraken2 read classification output to a file
+
+```
+$ nohuman -k kraken.out in.fq
+```
+
+```
+
 > [!TIP]
 > Compressed output will be inferred from the specified output path(s). If no output path is provided, the same
 > compression as the input will be used. To override the output compression format, use the `--output-type` option. 
@@ -222,6 +230,7 @@ Options:
   -t, --threads <INT>         Number of threads to use in kraken2 and optional output compression. Cannot be 0 [default: 1]
   -H, --human                 Output human reads instead of removing them
   -C, --conf <[0, 1]>         Kraken2 minimum confidence score [default: 0.0]
+  -k, --kraken-output <FILE>  Write the Kraken2 read classification output to a file  
   -v, --verbose               Set the logging level to verbose
   -h, --help                  Print help (see more with '--help')
   -V, --version               Print version
@@ -287,6 +296,9 @@ Options:
           Kraken2 minimum confidence score
 
           [default: 0.0]
+          
+  -k, --kraken-output <FILE>
+          Write the Kraken2 read classification output to a file
           
   -v, --verbose
           Set the logging level to verbose
