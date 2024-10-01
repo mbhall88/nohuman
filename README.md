@@ -37,7 +37,7 @@ sequencing technology. Read more about the development of this method [here][pap
 
 [![Conda (channel only)](https://img.shields.io/conda/vn/bioconda/nohuman)](https://anaconda.org/bioconda/nohuman)
 [![bioconda version](https://anaconda.org/bioconda/nohuman/badges/platforms.svg)](https://anaconda.org/bioconda/nohuman)
-![Conda](https://img.shields.io/conda/dn/bioconda/nohuman)
+![Conda Downloads](https://img.shields.io/conda/d/bioconda/nohuman)
 
 ```shell
 $ conda install -c bioconda nohuman
@@ -187,6 +187,12 @@ or to specify a different path for the output
 $ nohuman -t 4 --out1 clean_1.fq --out2 clean_2.fq in_1.fq in_2.fq
 ```
 
+Set a [minimum confidence score][conf] for kraken2 classifications
+
+```
+$ nohuman --conf 0.5 in.fq
+```
+
 > [!TIP]
 > Compressed output will be inferred from the specified output path(s). If no output path is provided, the same
 > compression as the input will be used. To override the output compression format, use the `--output-type` option. 
@@ -215,6 +221,7 @@ Options:
   -F, --output-type <FORMAT>  Output compression format. u: uncompressed; b: Bzip2; g: Gzip; x: Xz (Lzma); z: Zstd
   -t, --threads <INT>         Number of threads to use in kraken2 and optional output compression. Cannot be 0 [default: 1]
   -H, --human                 Output human reads instead of removing them
+  -C, --conf <[0, 1]>         Kraken2 minimum confidence score [default: 0.0]
   -v, --verbose               Set the logging level to verbose
   -h, --help                  Print help (see more with '--help')
   -V, --version               Print version
@@ -275,7 +282,12 @@ Options:
 
   -H, --human
           Output human reads instead of removing them
+          
+  -C, --conf <[0, 1]>
+          Kraken2 minimum confidence score
 
+          [default: 0.0]
+          
   -v, --verbose
           Set the logging level to verbose
 
@@ -327,3 +339,5 @@ more details and for other alternate approaches.
 [paper]: https://doi.org/10.1093/gigascience/giae010
 
 [ghcr]: https://github.com/mbhall88/nohuman/pkgs/container/nohuman
+
+[conf]: https://github.com/DerrickWood/kraken2/blob/master/docs/MANUAL.markdown#confidence-scoring

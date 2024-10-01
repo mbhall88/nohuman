@@ -8,7 +8,8 @@ use env_logger::Builder;
 use log::{debug, error, info, warn, LevelFilter};
 use nohuman::compression::CompressionFormat;
 use nohuman::{
-    check_path_exists, download::download_database, validate_db_directory, CommandRunner,
+    check_path_exists, download::download_database, parse_confidence_score, validate_db_directory,
+    CommandRunner,
 };
 
 static DEFAULT_DB_LOCATION: LazyLock<String> = LazyLock::new(|| {
@@ -71,6 +72,10 @@ struct Args {
     /// Output human reads instead of removing them
     #[arg(short = 'H', long = "human")]
     keep_human_reads: bool,
+
+    /// Kraken2 minimum confidence score
+    #[arg(short = 'C', long = "conf", value_name = "[0, 1]", default_value = "0.0", value_parser = parse_confidence_score)]
+    confidence: f32,
 
     /// Set the logging level to verbose
     #[arg(short, long)]
@@ -142,6 +147,7 @@ fn main() -> Result<()> {
     let temp_kraken_output =
         tempfile::NamedTempFile::new().context("Failed to create temporary kraken output file")?;
     let threads = args.threads.to_string();
+    let confidence = args.confidence.to_string();
     let db = validate_db_directory(&args.database)
         .map_err(|e| anyhow::anyhow!(e))?
         .to_string_lossy()
@@ -153,6 +159,8 @@ fn main() -> Result<()> {
         &db,
         "--output",
         temp_kraken_output.path().to_str().unwrap(),
+        "--confidence",
+        &confidence,
     ];
     match input.len() {
         0 => bail!("No input files provided"),

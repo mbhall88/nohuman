@@ -157,6 +157,16 @@ pub fn validate_db_directory(path: &Path) -> Result<PathBuf, String> {
     ))
 }
 
+/// Parse confidence score from the command line. Will be passed on to kraken2. Must be in the
+/// closed interval [0, 1] - i.e. 0 <= confidence <= 1.
+pub fn parse_confidence_score(s: &str) -> Result<f32, String> {
+    let confidence: f32 = s.parse().map_err(|_| "Confidence score must be a number")?;
+    if !(0.0..=1.0).contains(&confidence) {
+        return Err("Confidence score must be in the closed interval [0, 1]".to_string());
+    }
+    Ok(confidence)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -204,5 +214,26 @@ mod tests {
         let actual = check_path_exists(OsStr::new("Cargo.toml")).unwrap();
         let expected = PathBuf::from("Cargo.toml");
         assert_eq!(actual, expected)
+    }
+
+    #[test]
+    fn test_parse_confidence_score() {
+        let result = parse_confidence_score("0.5");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), 0.5);
+
+        let result = parse_confidence_score("1.0");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), 1.0);
+
+        let result = parse_confidence_score("0.0");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), 0.0);
+
+        let result = parse_confidence_score("1.1");
+        assert!(result.is_err());
+
+        let result = parse_confidence_score("-0.1");
+        assert!(result.is_err());
     }
 }
