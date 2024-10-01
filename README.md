@@ -199,8 +199,6 @@ or write the kraken2 read classification output to a file
 $ nohuman -k kraken.out in.fq
 ```
 
-```
-
 > [!TIP]
 > Compressed output will be inferred from the specified output path(s). If no output path is provided, the same
 > compression as the input will be used. To override the output compression format, use the `--output-type` option. 
