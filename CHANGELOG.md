@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/mbhall88/nohuman/compare/0.2.1...0.3.0) (2024-10-01)
+
+
+### Features
+
+* add confidence threshold option `--conf` ([419ede9](https://github.com/mbhall88/nohuman/commit/419ede9cf5997692409106e294eb168ddc5427b7))
+* add kraken2 classification output file option `-k` ([a4146bb](https://github.com/mbhall88/nohuman/commit/a4146bb04c8dbef071366cec3be40118bc38a3d1))
+
 ## [0.2.1](https://github.com/mbhall88/nohuman/compare/0.2.0...0.2.1) (2024-09-23)
 
 
