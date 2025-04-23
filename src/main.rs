@@ -78,8 +78,11 @@ struct Args {
     confidence: f32,
 
     /// Write the Kraken2 read classification output to a file.
-    #[arg(short, long, value_name = "FILE")]
+    #[arg(short = 'k', long, value_name = "FILE")]
     kraken_output: Option<PathBuf>,
+    /// Write the Kraken2 report with aggregate counts/clade to file
+    #[arg(short = 'r', long, value_name = "FILE")]
+    kraken_report: Option<PathBuf>,
 
     /// Set the logging level to verbose
     #[arg(short, long)]
@@ -203,6 +206,12 @@ fn main() -> Result<()> {
         info!("Removing human reads...");
     }
 
+    if let Some(report_path) = &args.kraken_report {
+        if let Some(report_path_str) = report_path.to_str() {
+            kraken_cmd.extend(&["--report", report_path_str]);
+        }
+    }
+
     kraken_cmd.extend(input.iter().map(|p| p.to_str().unwrap()));
     debug!("Running kraken2...");
     debug!("With arguments: {:?}", &kraken_cmd);
@@ -303,6 +312,15 @@ fn main() -> Result<()> {
         for (input, output) in outputs {
             output_compression.compress(&input, &output, threads)?;
             info!("Output file written to: {:?}", &output);
+        }
+    }
+
+    if kraken_output != "/dev/null" {
+        info!("Kraken output file written to: {:?}", &kraken_output);
+    }
+    if let Some(report_path) = &args.kraken_report {
+        if let Some(report_path_str) = report_path.to_str() {
+            info!("Report file written to: {:?}", &report_path_str);
         }
     }
 
