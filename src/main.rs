@@ -81,6 +81,10 @@ struct Args {
     #[arg(short, long, value_name = "FILE")]
     kraken_output: Option<PathBuf>,
 
+    /// Write the Kraken2 report with aggregate counts/clade to file
+    #[arg(short = 'r', long, value_name = "FILE")]
+    kraken_report: Option<PathBuf>,
+
     /// Set the logging level to verbose
     #[arg(short, long)]
     verbose: bool,
@@ -166,6 +170,11 @@ fn main() -> Result<()> {
         "--confidence",
         &confidence,
     ];
+
+    if let Some(report_path) = args.kraken_report.as_ref().and_then(|p| p.to_str()) {
+        kraken_cmd.extend(&["--report", report_path]);
+    }
+
     match input.len() {
         0 => bail!("No input files provided"),
         2 => kraken_cmd.push("--paired"),
@@ -304,6 +313,14 @@ fn main() -> Result<()> {
             output_compression.compress(&input, &output, threads)?;
             info!("Output file written to: {:?}", &output);
         }
+    }
+
+    if kraken_output != "/dev/null" {
+        info!("Kraken output file written to: {:?}", &kraken_output);
+    }
+
+    if let Some(report_path) = &args.kraken_report {
+        info!("Kraken report file written to: {:?}", &report_path);
     }
 
     // cleanup the temporary directory, but only issue a warning if it fails
