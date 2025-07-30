@@ -78,8 +78,9 @@ struct Args {
     confidence: f32,
 
     /// Write the Kraken2 read classification output to a file.
-    #[arg(short = 'k', long, value_name = "FILE")]
+    #[arg(short, long, value_name = "FILE")]
     kraken_output: Option<PathBuf>,
+
     /// Write the Kraken2 report with aggregate counts/clade to file
     #[arg(short = 'r', long, value_name = "FILE")]
     kraken_report: Option<PathBuf>,
@@ -169,6 +170,11 @@ fn main() -> Result<()> {
         "--confidence",
         &confidence,
     ];
+
+    if let Some(report_path) = args.kraken_report.as_ref().and_then(|p| p.to_str()) {
+        kraken_cmd.extend(&["--report", report_path]);
+    }
+
     match input.len() {
         0 => bail!("No input files provided"),
         2 => kraken_cmd.push("--paired"),
@@ -204,12 +210,6 @@ fn main() -> Result<()> {
     } else {
         kraken_cmd.extend(&["--unclassified-out", &outfile]);
         info!("Removing human reads...");
-    }
-
-    if let Some(report_path) = &args.kraken_report {
-        if let Some(report_path_str) = report_path.to_str() {
-            kraken_cmd.extend(&["--report", report_path_str]);
-        }
     }
 
     kraken_cmd.extend(input.iter().map(|p| p.to_str().unwrap()));
@@ -318,10 +318,9 @@ fn main() -> Result<()> {
     if kraken_output != "/dev/null" {
         info!("Kraken output file written to: {:?}", &kraken_output);
     }
+
     if let Some(report_path) = &args.kraken_report {
-        if let Some(report_path_str) = report_path.to_str() {
-            info!("Report file written to: {:?}", &report_path_str);
-        }
+        info!("Kraken report file written to: {:?}", &report_path);
     }
 
     // cleanup the temporary directory, but only issue a warning if it fails

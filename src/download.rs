@@ -55,7 +55,7 @@ fn compute_md5(path: &Path) -> Result<String, DownloadError> {
         hasher.consume(&buffer[..n]);
     }
     let result = hasher.compute();
-    Ok(format!("{:x}", result))
+    Ok(format!("{result:x}",))
 }
 
 async fn download_from_url(url: &str, dest: &Path) -> Result<(), DownloadError> {

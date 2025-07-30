@@ -83,7 +83,7 @@ impl std::fmt::Display for CompressionFormat {
             CompressionFormat::Xz => "xz",
             CompressionFormat::Zstd => "zst",
         };
-        write!(f, "{}", format)
+        write!(f, "{format}",)
     }
 }
 
@@ -228,9 +228,7 @@ where
         .compression_level(Compression::default())
         .from_writer(output);
     let bytes = io::copy(input, &mut encoder)?;
-    encoder
-        .finish()
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    encoder.finish().map_err(io::Error::other)?;
 
     Ok(bytes)
 }

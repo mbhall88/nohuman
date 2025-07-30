@@ -40,10 +40,10 @@ impl CommandRunner {
 
         let stderr_log = String::from_utf8_lossy(&output.stderr);
         if !output.status.success() {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!("{} failed with stderr {}", self.command, stderr_log),
-            ));
+            return Err(io::Error::other(format!(
+                "{} failed with stderr {}",
+                self.command, stderr_log
+            )));
         }
 
         debug!("kraken2 stderr:\n {}", stderr_log);
@@ -118,7 +118,7 @@ pub fn check_path_exists<S: AsRef<OsStr> + ?Sized>(s: &S) -> Result<PathBuf, Str
     if path.exists() {
         Ok(path)
     } else {
-        Err(format!("{:?} does not exist", path))
+        Err(format!("{path:?} does not exist",))
     }
 }
 
@@ -152,8 +152,7 @@ pub fn validate_db_directory(path: &Path) -> Result<PathBuf, String> {
     }
 
     Err(format!(
-        "Required files ({}) not found in {:?} or its 'db' subdirectory",
-        files_str, path
+        "Required files ({files_str}) not found in {path:?} or its 'db' subdirectory",
     ))
 }
 
