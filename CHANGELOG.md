@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/mbhall88/nohuman/compare/0.3.0...0.4.0) (2025-07-30)
+
+
+### Features
+
+* add Kraken2 report option with aggregate counts/clade ([#14](https://github.com/mbhall88/nohuman/issues/14)) ([100b98b](https://github.com/mbhall88/nohuman/commit/100b98b1ef075e7a600e38d61cb4d7a05f9b3583))
+
 ## [0.3.0](https://github.com/mbhall88/nohuman/compare/0.2.1...0.3.0) (2024-10-01)
 
 
