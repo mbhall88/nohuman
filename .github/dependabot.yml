@@ -1,0 +1,20 @@
+# adapted from https://github.com/jonhoo/rust-ci-conf/blob/fabb82abd53e0052c8b70ae197a80e6203ede26d/.github/dependabot.yml
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: "*"
+        # patch and minor updates don't matter for libraries as consumers of this library build
+        # with their own lockfile, rather than the version specified in this library's lockfile
+        # remove this ignore rule if your package has binaries to ensure that the binaries are
+        # built with the exact set of dependencies and those are up to date.
+        update-types:
+          - "version-update:semver-patch"
+          - "version-update:semver-minor"
