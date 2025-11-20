@@ -147,12 +147,36 @@ $ target/release/nohuman -h
 
 ### Download the database
 
+`nohuman` now keeps a manifest of the available Kraken2 databases so you can install as many versions as you want.
+
+List the available versions (the default is always the most recent dataset, currently `HPRC.r2` that includes the
+latest Human Pangenome Reference genomes):
+
 ```
-$ nohuman -d
+$ nohuman --list-db-versions
 ```
 
-by default, this will place the database in `$HOME/.nohuman/db`. If you want to download it somewhere else, use
-the `--db` option.
+Download the default (latest) database:
+
+```
+$ nohuman --download
+```
+
+Download a specific version or fetch every available release:
+
+```
+$ nohuman --download --db-version HPRC.r1
+$ nohuman --download --db-version all
+```
+
+By default, databases are cached under `$HOME/.nohuman/db/<version>`. When you run `nohuman` without any additional
+options it will automatically choose the newest database you have installed. Use `--db-version` to pin a specific
+version, or `--db` to point at a directory that already contains a Kraken2 database (for example, a shared install):
+
+```
+$ nohuman --db-version HPRC.r1 -t 4 in.fq
+$ nohuman --db /data/my_kraken_db -t 4 in.fq
+```
 
 ### Check dependencies are available
 
@@ -230,6 +254,9 @@ Options:
   -c, --check                 Check that all required dependencies are available and exit
   -d, --download              Download the database
   -D, --db <PATH>             Path to the database [default: /home/michael/.nohuman/db]
+      --db-version <VERSION>  Name of a downloaded database version to use (use `all` with
+                              `--download` to fetch every version)
+      --list-db-versions      List available database versions and exit
   -F, --output-type <FORMAT>  Output compression format. u: uncompressed; b: Bzip2; g: Gzip; x: Xz (Lzma); z: Zstd
   -t, --threads <INT>         Number of threads to use in kraken2 and optional output compression. Cannot be 0 [default: 1]
   -H, --human                 Output human reads instead of removing them
@@ -282,6 +309,12 @@ Options:
           Path to the database
 
           [default: ~/.nohuman/db]
+
+      --db-version <VERSION>
+          Name of a downloaded database version to use (use `all` with `--download` to fetch every version)
+
+      --list-db-versions
+          List available database versions and exit
 
   -F, --output-type <FORMAT>
           Output compression format. u: uncompressed; b: Bzip2; g: Gzip; x: Xz (Lzma); z: Zstd

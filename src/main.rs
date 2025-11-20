@@ -2,15 +2,13 @@ use std::num::NonZeroU32;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
 use env_logger::Builder;
 use log::{debug, error, info, warn, LevelFilter};
 use nohuman::compression::CompressionFormat;
-use nohuman::{
-    check_path_exists, download::download_database, parse_confidence_score, validate_db_directory,
-    CommandRunner,
-};
+use nohuman::download::{self, download_database, DbSelection};
+use nohuman::{check_path_exists, parse_confidence_score, validate_db_directory, CommandRunner};
 
 static DEFAULT_DB_LOCATION: LazyLock<String> = LazyLock::new(|| {
     let home = dirs::home_dir().unwrap_or_default();
@@ -24,7 +22,7 @@ static DEFAULT_DB_LOCATION: LazyLock<String> = LazyLock::new(|| {
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// Input file(s) to remove human reads from
-    #[arg(name = "INPUT", required_unless_present_any = &["check", "download"], value_parser = check_path_exists, verbatim_doc_comment)]
+    #[arg(name = "INPUT", required_unless_present_any = &["check", "download", "list_db_versions"], value_parser = check_path_exists, verbatim_doc_comment)]
     input: Option<Vec<PathBuf>>,
 
     /// First output file.
@@ -57,6 +55,15 @@ struct Args {
     /// Path to the database
     #[arg(short = 'D', long = "db", value_name = "PATH", default_value = &**DEFAULT_DB_LOCATION)]
     database: PathBuf,
+
+    /// Name of the database version to use (defaults to the newest installed). When used with
+    /// `--download`, passing `all` downloads every available version.
+    #[arg(long, value_name = "VERSION")]
+    db_version: Option<String>,
+
+    /// List available database versions and exit
+    #[arg(long)]
+    list_db_versions: bool,
 
     /// Output compression format. u: uncompressed; b: Bzip2; g: Gzip; x: Xz (Lzma); z: Zstd
     ///
@@ -107,15 +114,47 @@ fn main() -> Result<()> {
         .format_target(false)
         .init();
 
-    // Check if the database exists
-    if !args.database.exists() && !args.download && !args.check {
-        bail!("Database does not exist. Use --download to download the database");
+    if args.list_db_versions {
+        let config = download::download_config().context("Failed to download database manifest")?;
+        println!("Available databases:");
+        for release in &config.databases {
+            let mut labels = Vec::new();
+            if config
+                .default_version
+                .as_ref()
+                .is_some_and(|default| default == &release.version)
+            {
+                labels.push("default");
+            }
+            let label = if labels.is_empty() {
+                String::new()
+            } else {
+                format!(" ({})", labels.join(", "))
+            };
+            println!(
+                "- {}{} (added {}) -> {}",
+                release.version, label, release.added, release.url
+            );
+        }
+        return Ok(());
     }
 
     if args.download {
+        let selection = match args.db_version.as_deref() {
+            Some("all") => DbSelection::All,
+            Some(version) => DbSelection::Version(version.to_string()),
+            None => DbSelection::Latest,
+        };
         info!("Downloading database...");
-        download_database(&args.database).context("Failed to download database")?;
-        info!("Database downloaded");
+        let installs =
+            download_database(&args.database, selection).context("Failed to download database")?;
+        for install in installs {
+            match validate_db_directory(&install.path) {
+                Ok(actual) => info!("Database {} ready at {:?}", install.version, actual),
+                Err(_) => info!("Database {} ready at {:?}", install.version, install.path),
+            }
+        }
+        info!("Database download complete");
         if args.input.is_none() {
             info!("No input files provided. Exiting.");
             return Ok(());
@@ -150,16 +189,23 @@ fn main() -> Result<()> {
     }
 
     // error out if input files are not provided, otherwise unwrap to a variable
-    let input = args.input.context("No input files provided")?;
+    let input = args.input.clone().context("No input files provided")?;
+
+    let resolved_db = resolve_database(&args)?;
+    if let Some(version) = &resolved_db.version {
+        info!(
+            "Using database version {} at {:?}",
+            version, resolved_db.path
+        );
+    } else {
+        info!("Using database at {:?}", resolved_db.path);
+    }
 
     let kraken_output = args.kraken_output.unwrap_or(PathBuf::from("/dev/null"));
     let kraken_output = kraken_output.to_string_lossy();
     let threads = args.threads.to_string();
     let confidence = args.confidence.to_string();
-    let db = validate_db_directory(&args.database)
-        .map_err(|e| anyhow::anyhow!(e))?
-        .to_string_lossy()
-        .to_string();
+    let db = resolved_db.path.to_string_lossy().to_string();
     let mut kraken_cmd = vec![
         "--threads",
         &threads,
@@ -331,4 +377,52 @@ fn main() -> Result<()> {
     info!("Done.");
 
     Ok(())
+}
+
+struct ResolvedDatabase {
+    path: PathBuf,
+    version: Option<String>,
+}
+
+fn resolve_database(args: &Args) -> Result<ResolvedDatabase> {
+    if let Some(version) = &args.db_version {
+        if version == "all" {
+            bail!("Cannot run with `--db-version all`. Use `--download --db-version all` to download every database.");
+        }
+        let installed = download::find_installed_database(&args.database, version).ok_or_else(
+            || {
+                anyhow!(
+                    "Database version '{}' is not installed under {:?}. Run `nohuman --download --db-version {}` to download it.",
+                    version,
+                    args.database,
+                    version
+                )
+            },
+        )?;
+        let path = validate_db_directory(&installed.path).map_err(|e| anyhow!(e))?;
+        return Ok(ResolvedDatabase {
+            path,
+            version: Some(installed.version),
+        });
+    }
+
+    if let Ok(path) = validate_db_directory(&args.database) {
+        return Ok(ResolvedDatabase {
+            path,
+            version: None,
+        });
+    }
+
+    if let Some(installed) = download::latest_installed_database(&args.database) {
+        let path = validate_db_directory(&installed.path).map_err(|e| anyhow!(e))?;
+        return Ok(ResolvedDatabase {
+            path,
+            version: Some(installed.version),
+        });
+    }
+
+    Err(anyhow!(
+        "Database does not exist at {:?}. Run `nohuman --download` to fetch one.",
+        args.database
+    ))
 }
