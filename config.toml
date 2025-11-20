@@ -1,2 +1,19 @@
-database_url = "https://zenodo.org/records/8339732/files/k2_HPRC_20230810.tar.gz"
-database_md5 = "87275d884181cfb6b46fdb883195dacb"
+default_version = "HPRC.r2"
+
+[[databases]]
+version = "HPRC.r2"
+url = "https://ndownloader.figshare.com/files/59658306"
+md5 = "bda8fb2ffb1a0b4cbeb880cbc4d79fc6"
+added = "2025-11-19"
+
+[[databases]]
+version = "HPRC.r1"
+url = "https://zenodo.org/records/17626846/files/k2_HPRC_release1_20251110.tar.gz"
+md5 = "87275d884181cfb6b46fdb883195dacb"
+added = "2025-11-17"
+
+[[databases]]
+version = "HPRC.r1.masked"
+url = "https://zenodo.org/records/8339732/files/k2_HPRC_20230810.tar.gz"
+md5 = "87275d884181cfb6b46fdb883195dacb"
+added = "2023-08-10"
