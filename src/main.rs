@@ -53,7 +53,13 @@ struct Args {
     download: bool,
 
     /// Path to the database
-    #[arg(short = 'D', long = "db", value_name = "PATH", default_value = &**DEFAULT_DB_LOCATION)]
+    #[arg(
+        short = 'D',
+        long = "db",
+        value_name = "PATH",
+        default_value = &**DEFAULT_DB_LOCATION,
+        env = "NOHUMAN_DB"
+    )]
     database: PathBuf,
 
     /// Name of the database version to use (defaults to the newest installed). When used with
@@ -425,4 +431,25 @@ fn resolve_database(args: &Args) -> Result<ResolvedDatabase> {
         "Database does not exist at {:?}. Run `nohuman --download` to fetch one.",
         args.database
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Args;
+    use clap::Parser;
+    use std::env;
+    use std::sync::Mutex;
+    use tempfile::tempdir;
+
+    static ENV_MUTEX: Mutex<()> = Mutex::new(());
+
+    #[test]
+    fn database_path_can_be_set_via_env_var() {
+        let _guard = ENV_MUTEX.lock().unwrap();
+        let temp = tempdir().unwrap();
+        env::set_var("NOHUMAN_DB", temp.path());
+        let args = Args::try_parse_from(["nohuman", "--check"]).unwrap();
+        assert_eq!(args.database, temp.path());
+        env::remove_var("NOHUMAN_DB");
+    }
 }
