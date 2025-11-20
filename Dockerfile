@@ -139,8 +139,8 @@ index 04160c2..7d5a574
              input[start:end], job_number, use_names, args,
              save_seq_names, final
          )
-PATCH \
-    && git apply /tmp/0001-src-Makefile.patch \
+PATCH
+    RUN git apply /tmp/0001-src-Makefile.patch \
     && git apply /tmp/0002-k2.patch \
     && ./install_kraken2.sh /bin \
     && cp -v scripts/* /bin/ 2>/dev/null || true \
