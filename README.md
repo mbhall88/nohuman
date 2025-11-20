@@ -10,7 +10,7 @@
 
 `nohuman` removes human reads from sequencing reads by classifying them with [kraken2][kraken] against a custom database
 built from all of the genomes in the Human Pangenome Reference Consortium's (
-HPRC) [first draft human pangenome reference](https://doi.org/10.1038/s41586-023-05896-x). It can take any type of
+HPRC) [second release](https://humanpangenome.org/hprc-data-release-2/). It can take any type of
 sequencing technology. Read more about the development of this method [here][paper].
 
 - [NoHuman](#nohuman)
