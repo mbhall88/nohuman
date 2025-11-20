@@ -178,6 +178,10 @@ $ nohuman --db-version HPRC.r1 -t 4 in.fq
 $ nohuman --db /data/my_kraken_db -t 4 in.fq
 ```
 
+> [!TIP]
+> Set the `NOHUMAN_DB` environment variable to override the default database location for every command without having to
+> pass `--db` each time.
+
 ### Check dependencies are available
 
 ```
