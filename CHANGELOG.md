@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.0](https://github.com/mbhall88/nohuman/compare/0.4.0...0.5.0) (2025-11-20)
+
+
+### Features
+
+* add HPRC release 2 database (HPRC.r2) ([a329fa9](https://github.com/mbhall88/nohuman/commit/a329fa950d1ecb68380e95a024bc1640461be107))
+* support for NOHUMAN_DB environment variable ([ec1478f](https://github.com/mbhall88/nohuman/commit/ec1478f3ee085854cc9c4005465c987f89e0048c))
+* support multi-version databases with manifest ([553ab72](https://github.com/mbhall88/nohuman/commit/553ab723018ec17464eb7e1b3c30debe092049e9))
+
 ## [0.4.0](https://github.com/mbhall88/nohuman/compare/0.3.0...0.4.0) (2025-07-30)
 
 
