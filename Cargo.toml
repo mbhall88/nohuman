@@ -26,7 +26,7 @@ reqwest = { version = "0.12.7", default-features = false, features = ["blocking"
 tar = "0.4.40"
 thiserror = "1.0.50"
 tempfile = "3.8.1"
-toml = "0.8.8"
+toml = "0.9.8"
 serde = { version = "1.0.193", features = ["derive"] }
 md5 = "0.7.0"
 dirs = "5.0.1"
