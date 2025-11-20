@@ -21,6 +21,7 @@ RUN apt-get update && apt-get -y --no-install-recommends install \
     zlib1g-dev \
     make \
     g++ \
+    libgoogle-perftools-dev \
     rsync \
     cpanminus \
     ncbi-blast+ && \
