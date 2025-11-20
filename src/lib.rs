@@ -2,27 +2,11 @@ pub mod compression;
 pub mod download;
 
 use log::{debug, info};
-use serde::Deserialize;
 use std::ffi::OsStr;
 use std::io::{self};
 use std::num::ParseIntError;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-
-#[derive(Deserialize)]
-pub struct Config {
-    pub database_url: String,
-    pub database_md5: String,
-}
-
-impl Config {
-    pub fn new(database_url: &str, database_md5: &str) -> Self {
-        Self {
-            database_url: database_url.to_string(),
-            database_md5: database_md5.to_string(),
-        }
-    }
-}
 
 pub struct CommandRunner {
     pub command: String,
