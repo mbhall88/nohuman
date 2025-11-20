@@ -94,7 +94,7 @@ index 248b553..5a9a7eb 100755
  do
    destination_file="$KRAKEN2_DIR/$(basename "$file")"
 PATCH
-    && cat > /tmp/0002-k2.patch <<'PATCH'
+    RUN cat > /tmp/0002-k2.patch <<'PATCH'
 diff --git a/scripts/k2 b/scripts/k2
 old mode 100755
 new mode 100644
@@ -139,7 +139,7 @@ index 04160c2..7d5a574
              input[start:end], job_number, use_names, args,
              save_seq_names, final
          )
-PATCH
+PATCH \
     && git apply /tmp/0001-src-Makefile.patch \
     && git apply /tmp/0002-k2.patch \
     && ./install_kraken2.sh /bin \
