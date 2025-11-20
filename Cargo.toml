@@ -35,6 +35,6 @@ async-std = { version = "1.12.0", features = ["attributes", "tokio1"] }
 indicatif = "0.17.7"
 bzip2 = "0.4.4"
 zstd = { version = "0.13.2", features = ["zstdmt"] }
-liblzma = { version = "0.2.3", features = ["parallel"] }
+liblzma = { version = "0.4.5", features = ["parallel"] }
 gzp = { version = "0.11.3", default-features = false, features = ["deflate_rust"] }
 jiff = "0.2.0"
