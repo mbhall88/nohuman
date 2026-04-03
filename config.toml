@@ -9,7 +9,7 @@ added = "2025-11-19"
 [[databases]]
 version = "HPRC.r1"
 url = "https://zenodo.org/records/17626846/files/k2_HPRC_release1_20251110.tar.gz"
-md5 = "87275d884181cfb6b46fdb883195dacb"
+md5 = "1cdf55d3739729fce4012519cc4706f1"
 added = "2025-11-17"
 
 [[databases]]

@@ -5,7 +5,6 @@ use futures_util::StreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
 use jiff::civil::Date;
 use log::{debug, info};
-use reqwest::blocking::get;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::fs::File;
@@ -19,6 +18,7 @@ use thiserror::Error;
 const CONFIG_URL: &str = "https://raw.githubusercontent.com/mbhall88/nohuman/main/config.toml";
 const METADATA_FILE: &str = "nohuman-db.toml";
 const LEGACY_ADDED_DATE: &str = "1970-01-01";
+const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 
 #[derive(Error, Debug)]
 pub enum DownloadError {
@@ -144,11 +144,24 @@ pub fn download_database(
 }
 
 pub fn download_config() -> Result<DatabaseConfig, DownloadError> {
-    let mut response = get(CONFIG_URL).map_err(|_| DownloadError::ConfigDownloadFailed)?;
-    let mut config_content = String::new();
-    response
-        .read_to_string(&mut config_content)
-        .map_err(|_| DownloadError::ConfigDownloadFailed)?;
+    let config_content = if let Ok(content) = fs::read_to_string("config.toml") {
+        debug!("Using local config.toml");
+        content
+    } else {
+        let client = reqwest::blocking::Client::builder()
+            .user_agent(USER_AGENT)
+            .build()
+            .map_err(|_| DownloadError::ConfigDownloadFailed)?;
+        let mut response = client
+            .get(CONFIG_URL)
+            .send()
+            .map_err(|_| DownloadError::ConfigDownloadFailed)?;
+        let mut content = String::new();
+        response
+            .read_to_string(&mut content)
+            .map_err(|_| DownloadError::ConfigDownloadFailed)?;
+        content
+    };
 
     let config: DatabaseConfig =
         toml::from_str(&config_content).map_err(|_| DownloadError::ConfigParseFailed)?;
@@ -297,11 +310,18 @@ fn compute_md5(path: &Path) -> Result<String, DownloadError> {
 }
 
 async fn download_from_url(url: &str, dest: &Path) -> Result<(), DownloadError> {
-    let response = reqwest::get(url)
+    let client = reqwest::Client::builder()
+        .user_agent(USER_AGENT)
+        .build()
+        .map_err(DownloadError::ReqwestError)?;
+    let response = client
+        .get(url)
+        .send()
         .await
         .map_err(DownloadError::ReqwestError)?;
 
     if response.status() != reqwest::StatusCode::OK {
+        debug!("Failed to download {}: {}", url, response.status());
         return Err(DownloadError::DownloadFailed);
     }
 
