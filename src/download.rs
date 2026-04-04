@@ -144,8 +144,12 @@ pub fn download_database(
 }
 
 pub fn download_config() -> Result<DatabaseConfig, DownloadError> {
-    let config_content = if let Ok(content) = fs::read_to_string("config.toml") {
-        debug!("Using local config.toml");
+    download_config_from_path(Path::new("config.toml"))
+}
+
+fn download_config_from_path(local_path: &Path) -> Result<DatabaseConfig, DownloadError> {
+    let config_content = if let Ok(content) = fs::read_to_string(local_path) {
+        debug!("Using local config at {:?}", local_path);
         content
     } else {
         let client = reqwest::blocking::Client::builder()
@@ -539,5 +543,39 @@ mod tests {
 
         let latest = latest_installed_database(temp_dir.path()).unwrap();
         assert_eq!(latest.version, "HPRC.r2");
+    }
+
+    #[test]
+    fn test_manifest_consistency() {
+        // Test that the HPRC.r1 and HPRC.r1.masked MD5s are what we expect.
+        // This prevents regression on the config MD5 mismatch.
+        let config = download_config().expect("Could not load config");
+        if let Some(r1) = config.find_release("HPRC.r1") {
+            assert_eq!(
+                r1.md5, "1cdf55d3739729fce4012519cc4706f1",
+                "HPRC.r1 MD5 in config does not match expected"
+            );
+        }
+        if let Some(r1_masked) = config.find_release("HPRC.r1.masked") {
+            assert_eq!(
+                r1_masked.md5, "87275d884181cfb6b46fdb883195dacb",
+                "HPRC.r1.masked MD5 in config does not match expected"
+            );
+        }
+    }
+
+    #[test]
+    fn test_zenodo_forbidden_prevention() {
+        if !check_internet_connection(std::time::Duration::from_secs(2)) {
+            return;
+        }
+        // Try to fetch a Zenodo record using our download logic.
+        // This verifies that the User-Agent fix is working.
+        let url = "https://zenodo.org/records/17626846/files/hprc.r1_assembly_summary.txt";
+        let temp_dir = TempDir::new().unwrap();
+        let dest = temp_dir.path().join("summary.txt");
+        let result = task::block_on(download_from_url(url, &dest));
+        assert!(result.is_ok(), "Zenodo download failed with: {:?}", result);
+        assert!(dest.exists());
     }
 }
