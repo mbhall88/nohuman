@@ -309,7 +309,7 @@ fn compute_md5(path: &Path) -> Result<String, DownloadError> {
         }
         hasher.consume(&buffer[..n]);
     }
-    let result = hasher.compute();
+    let result = hasher.finalize();
     Ok(format!("{result:x}",))
 }
 
