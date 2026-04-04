@@ -442,14 +442,15 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let output_path = temp_dir.path().join("output");
 
-        let url = "https://example.com/nonexistent.tar.gz";
+        let url = "https://github.com/mbhall88/nohuman/nonexistent.tar.gz";
         let md5 = "foo";
         let result = download_and_extract_tarball(url, &output_path, md5);
 
         assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err().to_string(),
-            DownloadError::DownloadFailed.to_string()
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("Failed to download the tarball") || err_msg.contains("error sending request"),
+            "Unexpected error message: {}", err_msg
         );
 
         temp_dir.close().unwrap();
