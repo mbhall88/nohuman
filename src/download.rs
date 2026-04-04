@@ -449,8 +449,10 @@ mod tests {
         assert!(result.is_err());
         let err_msg = result.unwrap_err().to_string();
         assert!(
-            err_msg.contains("Failed to download the tarball") || err_msg.contains("error sending request"),
-            "Unexpected error message: {}", err_msg
+            err_msg.contains("Failed to download the tarball")
+                || err_msg.contains("error sending request"),
+            "Unexpected error message: {}",
+            err_msg
         );
 
         temp_dir.close().unwrap();
