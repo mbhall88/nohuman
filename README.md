@@ -51,33 +51,16 @@ $ conda install -c bioconda nohuman
 > You will need to [install kraken2][kraken] yourself using this install method.
 
 ```shell
-curl -sSL nohuman.mbh.sh | sh
+curl -sSL https://github.com/mbhall88/nohuman/releases/latest/download/install.sh | sh
 # or with wget
-wget -nv -O - nohuman.mbh.sh | sh
+wget -nv -O - https://github.com/mbhall88/nohuman/releases/latest/download/install.sh | sh
 ```
 
 You can also pass options to the script like so
 
 ```
-$ curl -sSL nohuman.mbh.sh | sh -s -- --help
-install.sh [option]
-
-Fetch and install the latest version of nohuman, if nohuman is already
-installed it will be updated to the latest version.
-
-Options
-        -V, --verbose
-                Enable verbose output for the installer
-
-        -f, -y, --force, --yes
-                Skip the confirmation prompt during installation
-
-        -p, --platform
-                Override the platform identified by the installer [default: apple-darwin]
-
-        -b, --bin-dir
-                Override the bin installation directory [default: /usr/local/bin]
-
+$ curl -sSL https://github.com/mbhall88/nohuman/releases/latest/download/install.sh | sh -s -- --help
+```
         -a, --arch
                 Override the architecture identified by the installer [default: x86_64]
 

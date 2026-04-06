@@ -54,7 +54,7 @@ verify_shell_is_posix_or_exit() {
   fi
 }
 
-# Gets path to a temporary file, even if
+# Gets path to a temporary file
 get_tmpfile() {
   suffix="$1"
   if has mktemp; then
@@ -77,13 +77,14 @@ get_tmpdir() {
 
 # Gets the latest github release tag (version)
 get_version_from_github() {
+  url="https://api.github.com/repos/${GH_USER}/${PROJECT}/releases/latest"
   # if wget is available
-  if command -v wget >/dev/null 2>&1; then
-    ver=$(wget -qO - "https://api.github.com/repos/${GH_USER}/${PROJECT}/releases/latest" |
+  if has wget; then
+    ver=$(wget -qO - "$url" |
       grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
   # use curl if no wget
-  elif command -v curl >/dev/null 2>&1; then
-    ver=$(curl -s "https://api.github.com/repos/${GH_USER}/${PROJECT}/releases/latest" |
+  elif has curl; then
+    ver=$(curl -s "$url" |
       grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
   else
     error "No HTTP download program (curl or wget) found, exiting…"
@@ -108,6 +109,11 @@ test_writeable() {
 download() {
   file="$1"
   url="$2"
+
+  if [ -n "${DRY_RUN-}" ]; then
+    info "Dry run: skipping download of ${BLUE}${url}${NO_COLOR}"
+    return 0
+  fi
 
   if has curl; then
     cmd="curl --fail --silent --location --output $file $url"
@@ -137,16 +143,26 @@ unpack() {
   temp_dir=$(get_tmpdir)
   sudo=${3-}
 
+  if [ -n "${DRY_RUN-}" ]; then
+    info "Dry run: skipping extraction to ${GREEN}${bin_dir}${NO_COLOR}"
+    return 0
+  fi
+
   case "$archive" in
   *.tar.gz)
     flags=$(test -n "${VERBOSE-}" && echo "-xzvof" || echo "-xzof")
     ${sudo} tar "${flags}" "${archive}" -C "${temp_dir}"
     ${sudo} mv "${temp_dir}"/${PROJECT}-*/${PROJECT} "${bin_dir}/${PROJECT}"
+    # Cleanup temp extraction dir
+    rm -rf "${temp_dir}"
     return 0
     ;;
   *.zip)
     flags=$(test -z "${VERBOSE-}" && echo "-qqo" || echo "-o")
     UNZIP="${flags}" ${sudo} unzip "${archive}" -d "${temp_dir}"
+    ${sudo} mv "${temp_dir}"/${PROJECT}-*/${PROJECT} "${bin_dir}/${PROJECT}"
+    # Cleanup temp extraction dir
+    rm -rf "${temp_dir}"
     return 0
     ;;
   esac
@@ -169,6 +185,7 @@ usage() {
   printf "\t%s\n\t\t%s\n\n" \
     "-V, --verbose" "Enable verbose output for the installer" \
     "-f, -y, --force, --yes" "Skip the confirmation prompt during installation" \
+    "-n, --dry-run" "Display what would be done without actually installing" \
     "-p, --platform" "Override the platform identified by the installer [default: ${PLATFORM}]" \
     "-b, --bin-dir" "Override the bin installation directory [default: ${BIN_DIR}]" \
     "-a, --arch" "Override the architecture identified by the installer [default: ${ARCH}]" \
@@ -206,6 +223,9 @@ install() {
   info "$msg"
 
   archive=$(get_tmpfile "$ext")
+
+  # Setup trap for cleanup of the archive
+  trap 'rm -f "$archive"' EXIT
 
   # download to the temp file
   download "${archive}" "${url}"
@@ -274,6 +294,9 @@ detect_target() {
 }
 
 confirm() {
+  if [ -n "${DRY_RUN-}" ]; then
+    return 0
+  fi
   if [ -z "${FORCE-}" ]; then
     printf "%s " "${MAGENTA}?${NO_COLOR} $* ${BOLD}[y/N]${NO_COLOR}"
     set +e
@@ -293,6 +316,10 @@ confirm() {
 
 check_bin_dir() {
   bin_dir="${1%/}"
+
+  if [ -n "${DRY_RUN-}" ]; then
+    return 0
+  fi
 
   if [ ! -d "$BIN_DIR" ]; then
     error "Installation location $BIN_DIR does not appear to be a directory"
@@ -382,7 +409,10 @@ while [ "$#" -gt 0 ]; do
     BASE_URL="$2"
     shift 2
     ;;
-
+  -n | --dry-run)
+    DRY_RUN=1
+    shift 1
+    ;;
   -V | --verbose)
     VERBOSE=1
     shift 1
@@ -444,6 +474,10 @@ if [ -n "${VERBOSE-}" ]; then
   info "${BOLD}Verbose${NO_COLOR}: yes"
 else
   VERBOSE=
+fi
+
+if [ -n "${DRY_RUN-}" ]; then
+  info "${BOLD}Dry run${NO_COLOR}: yes"
 fi
 
 printf '\n'
