@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.1](https://github.com/mbhall88/nohuman/compare/0.5.0...v0.5.1) (2026-04-06)
+
+
+### Bug Fixes
+
+* address security alerts and update dependencies ([95447ad](https://github.com/mbhall88/nohuman/commit/95447ad2bde0e050defc5e57f51eed1408178aa3))
+* set custom user-agent and correct HPRC.r1 MD5 ([b3b4367](https://github.com/mbhall88/nohuman/commit/b3b4367d7d7cc881dde140e2cb123028ee1ee586))
+
 ## [0.5.0](https://github.com/mbhall88/nohuman/compare/0.4.0...0.5.0) (2025-11-20)
 
 
