@@ -1,7 +1,7 @@
 [package]
 name = "nohuman"
 description = "Remove human reads from a sequencing run"
-version = "0.5.1"
+version = "0.6.0"
 edition = "2021"
 authors = ["Michael Hall <mhaldini@icloud.com>"]
 repository = "https://github.com/mbhall88/nohuman"
@@ -18,7 +18,7 @@ maintenance = { status = "actively-developed" }
 
 [dependencies]
 clap = { version = "4.5.18", features = ["derive", "env"] }
-log = "0.4.30"
+log = "0.4.22"
 env_logger = "0.11.5"
 anyhow = "1.0.89"
 flate2 = "1.0.33"
