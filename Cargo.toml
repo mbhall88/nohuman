@@ -23,7 +23,7 @@ env_logger = "0.11.5"
 anyhow = "1.0.89"
 flate2 = "1.0.33"
 reqwest = { version = "0.12.9", default-features = false, features = ["blocking", "stream", "rustls-tls"] }
-tar = "0.4.41"
+tar = "0.4.46"
 thiserror = "2.0.17"
 tempfile = "3.12.0"
 toml = "1.0.2"
