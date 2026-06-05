@@ -60,7 +60,7 @@ You can also pass options to the script like so
 
 ```
 $ curl -sSL https://github.com/mbhall88/nohuman/releases/latest/download/install.sh | sh -s -- --help
-```
+
         -a, --arch
                 Override the architecture identified by the installer [default: x86_64]
 
