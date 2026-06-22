@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     name: check conventional commit compliance
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           # pick the pr HEAD instead of the merge commit only if it's a PR, otherwise use the default
@@ -29,7 +29,7 @@ jobs:
           - stable
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: taiki-e/install-action@just
 
